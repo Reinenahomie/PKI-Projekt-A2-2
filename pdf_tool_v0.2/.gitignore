@@ -1,0 +1,11 @@
+# Virtuelle Umgebung
+.venv/
+
+# Python-spezifisch
+__pycache__/
+*.pyc
+*.pyo
+
+# Temporäre Dateien
+*.log
+temp_preview.png
