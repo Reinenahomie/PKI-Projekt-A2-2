@@ -99,15 +99,22 @@ class ActionButtons:
             QMessageBox.warning(None, "Keine Datei geöffnet", "Bitte zuerst ein PDF öffnen.")
             return
 
+        # Zielverzeichnis auswählen
         output_dir = QFileDialog.getExistingDirectory(None, "Zielverzeichnis auswählen", Config.DEFAULT_OUTPUT_DIR)
         if not output_dir:
             return
 
         try:
-            PDFImageExtractor.extract_images(self.pdf_handler.file_path, output_dir)
-            QMessageBox.information(None, "Erfolg", f"Bilder erfolgreich gespeichert in: {output_dir}")
+            # Bilder extrahieren
+            image_paths = PDFImageExtractor.extract_images(self.pdf_handler.file_path, output_dir)
+
+            if not image_paths:
+                QMessageBox.information(None, "Keine Bilder gefunden", "Die ausgewählte PDF enthält keine Bilder.")
+            else:
+                QMessageBox.information(None, "Erfolg", f"{len(image_paths)} Bilder wurden erfolgreich gespeichert in: {output_dir}")
         except Exception as e:
             QMessageBox.critical(None, "Fehler", f"Bilder konnten nicht extrahiert werden:\n{e}")
+
 
     def rotate_pdf(self):
         """Dreht eine spezifische Seite der aktuellen PDF."""
