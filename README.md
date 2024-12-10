@@ -1,4 +1,4 @@
-# BDF Tool
+# PDF Tool
 
 Ein einfaches PDF-Tool mit einer grafischen Oberfläche (PyQt5) und Funktionen zur PDF-Bearbeitung (PyMuPDF).
 
