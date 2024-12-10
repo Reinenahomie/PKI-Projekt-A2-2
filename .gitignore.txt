@@ -1,0 +1,11 @@
+# Ignoriere Python-bezogene Dateien
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignoriere virtuelle Umgebungen
+env/
+venv/
+
+# Ignoriere Log-Dateien
+*.log
