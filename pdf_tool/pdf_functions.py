@@ -57,6 +57,64 @@ def create_zip_from_files(file_list, zip_path):
                 zipf.write(filepath, arcname=filename)
     except Exception as e:
         raise RuntimeError(f"Fehler beim Erstellen des ZIP-Archivs: {e}")
+    
+    import fitz  # PyMuPDF
+import os
+
+def extract_images_from_pdf(pdf_path, output_dir=None, preview_only=False):
+    """
+    Extrahiert Bilder aus einer PDF.
+
+    Args:
+        pdf_path (str): Pfad zur PDF-Datei.
+        output_dir (str): Zielverzeichnis für extrahierte Bilder (optional).
+        preview_only (bool): Wenn True, wird nur eine Vorschau des ersten Bildes erzeugt.
+
+    Returns:
+        list: Liste der Pfade zu extrahierten Bildern oder der Vorschau (falls preview_only=True).
+    """
+    extracted_images = []
+    
+    if not os.path.exists(pdf_path):
+        raise FileNotFoundError(f"PDF-Datei nicht gefunden: {pdf_path}")
+
+    doc = fitz.open(pdf_path)
+    
+    try:
+        for page_num, page in enumerate(doc):
+            # Alle Bilder auf der aktuellen Seite extrahieren
+            for img_index, img in enumerate(page.get_images(full=True)):
+                xref = img[0]
+                base_image = doc.extract_image(xref)
+                image_bytes = base_image["image"]
+                image_ext = base_image["ext"]
+
+                # Dateinamen erstellen
+                image_name = f"page_{page_num + 1}_img_{img_index + 1}.{image_ext}"
+                if output_dir:
+                    image_path = os.path.join(output_dir, image_name)
+                else:
+                    image_path = image_name
+
+                # Bild speichern
+                if not preview_only:
+                    with open(image_path, "wb") as img_file:
+                        img_file.write(image_bytes)
+
+                extracted_images.append(image_path)
+
+                # Nur Vorschau: Rückgabe nach dem ersten Bild
+                if preview_only:
+                    with open(image_name, "wb") as img_file:
+                        img_file.write(image_bytes)
+                    extracted_images = [image_name]
+                    return extracted_images
+
+    finally:
+        doc.close()
+
+    return extracted_images
+
 
 
 

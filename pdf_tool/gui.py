@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QPixmap, QIcon, QFont, QImage
 from PyQt5.QtCore import Qt, QSize
+from .pdfImageExtractorWidget import PDFImageExtractorWidget  # Importiere das neue Widget
 from .pdf_functions import load_pdf, render_page, split_pdf_into_pages, create_zip_from_files
 from .config import HOME_IMAGE_PATH  # hier wird der Pfad aus der config geladen
 
@@ -300,7 +301,7 @@ class MainWindow(QMainWindow):
         # Startseite mit Bild
         self.page_home = HomeWidget()
         self.page_pdf_to_word = QWidget()  
-        self.page_extract_images = QWidget()
+        self.page_extract_images = PDFImageExtractorWidget(self.stacked_widget)  # Neues Widget
         self.page_merge_pdf = QWidget()
         self.page_pdf_preview = PDFPreviewWidget(self.stacked_widget)
         self.page_split_pdf = PDFSplitWidget(self.stacked_widget)
