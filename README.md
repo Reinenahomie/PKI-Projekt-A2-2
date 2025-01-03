@@ -6,3 +6,9 @@ Ein einfaches PDF-Tool mit einer grafischen Oberfläche (PyQt5) und Funktionen z
 
 ```bash
 pip install -r requirements.txt
+
+Create a Virtual environment
+.\.venv\Scripts\Activate
+pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install pyQt5 pyMuPDF
+python run.py
