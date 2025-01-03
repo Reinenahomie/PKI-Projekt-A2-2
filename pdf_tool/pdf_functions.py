@@ -203,5 +203,20 @@ def extract_zugferd_data(pdf_path):
         doc.close()
 
 
-
+def merge_pdfs(pdf_files, output_path):
+    """
+    Fügt eine Liste von PDF-Dateien zu einer einzigen Datei zusammen.
+    
+    Args:
+        pdf_files (list): Liste der Pfade zu den PDF-Dateien
+        output_path (str): Pfad zur Ausgabedatei
+    """
+    try:
+        pdf_document = fitz.open()
+        for pdf_file in pdf_files:
+            pdf_document.insert_pdf(fitz.open(pdf_file))
+        pdf_document.save(output_path)
+        pdf_document.close()
+    except Exception as e:
+        raise RuntimeError(f"Fehler beim Zusammenführen der PDFs: {e}")
 

@@ -1,14 +1,15 @@
 import os
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog,
-    QLabel, QGridLayout, QScrollArea, QSpinBox, QStackedWidget, QComboBox, QMessageBox
+    QLabel, QGridLayout, QScrollArea, QSpinBox, QStackedWidget, QComboBox, QMessageBox, QListWidget
 )
 from PyQt5.QtGui import QPixmap, QIcon, QFont, QImage
 from PyQt5.QtCore import Qt, QSize
 from .pdfImageExtractorWidget import PDFImageExtractorWidget  # Importiere das neue Widget
-from .pdf_functions import load_pdf, render_page, split_pdf_into_pages, create_zip_from_files, show_pdf_open_dialog
+from .pdf_functions import load_pdf, render_page, split_pdf_into_pages, create_zip_from_files, show_pdf_open_dialog, merge_pdfs
 from .config import HOME_IMAGE_PATH  # hier wird der Pfad aus der config geladen
 from .ZugferdReaderWidget import ZugferdReaderWidget  # Importiere das neue Widget
+
 
 class HomeWidget(QWidget):
     def __init__(self, parent=None):
@@ -305,11 +306,12 @@ class MainWindow(QMainWindow):
         # Stacked Widget für unterschiedliche Ansichten
         self.stacked_widget = QStackedWidget()
 
-        # Startseite mit Bild
+        # Startseite mit Bild und instanziierten Widgets 
+
         self.page_home = HomeWidget()
         self.page_pdf_to_word = QWidget()  
         self.page_extract_images = PDFImageExtractorWidget(self.stacked_widget)  # Neues Widget
-        self.page_merge_pdf = QWidget()
+        self.page_merge_pdf = PDFZusammenfuegen(self.stacked_widget)
         self.page_pdf_preview = PDFPreviewWidget(self.stacked_widget)
         self.page_split_pdf = PDFSplitWidget(self.stacked_widget)
         self.page_zugferd = ZugferdReaderWidget(self.stacked_widget)
@@ -334,7 +336,7 @@ class MainWindow(QMainWindow):
         pdf_preview_button.clicked.connect(lambda: self.switch_page(4, "PDF Tool - PDF Vorschau"))
         split_pdf_button.clicked.connect(lambda: self.switch_page(5, "PDF Tool - PDF trennen"))
         zugferd_button.clicked.connect(lambda: self.switch_page(6, "PDF Tool - ZUGFeRD Rechnung"))
-
+        
         # Stylesheet anwenden
         self.apply_stylesheet()
 
@@ -381,3 +383,62 @@ class MainWindow(QMainWindow):
         self.stacked_widget.setCurrentIndex(0)
         self.setWindowTitle("PDF Tool")  # Zurück zum Standard-Titel
 
+
+class PDFZusammenfuegen(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+
+        label = QLabel("PDF Zusammenfügen")
+        label.setFont(QFont("Arial", 20))
+        label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(label)
+
+        # List to show selected PDF files
+        self.file_list = QListWidget()
+        layout.addWidget(self.file_list)
+
+        # Button to open files
+        self.open_button = QPushButton("PDF hinzufügen")
+        self.open_button.clicked.connect(self.open_file_dialog)
+        layout.addWidget(self.open_button)
+
+        # Button to merge files
+        self.merge_button = QPushButton("PDFs zusammenfügen")
+        self.merge_button.setEnabled(False)
+        self.merge_button.clicked.connect(self.merge_pdfs)
+        layout.addWidget(self.merge_button)
+
+        self.setLayout(layout)
+
+        # Store selected PDF paths
+        self.pdf_paths = []
+
+    def open_file_dialog(self):
+        """Allows users to select one or more PDF files."""
+        files, _ = QFileDialog.getOpenFileNames(self, "PDFs auswählen", "", "PDF Dateien (*.pdf)")
+        if files:
+            self.pdf_paths.extend(files)
+            self.file_list.addItems(files)
+            self.merge_button.setEnabled(True)
+
+    def merge_pdfs(self):
+        """Merges the selected PDFs."""
+        if not self.pdf_paths:
+            QMessageBox.warning(self, "Fehler", "Keine PDF-Dateien ausgewählt.")
+            return
+
+        save_path, _ = QFileDialog.getSaveFileName(self, "PDF speichern", "zusammengefuegt.pdf", "PDF Dateien (*.pdf)")
+        if not save_path:
+            return
+
+        try:
+            merge_pdfs(self.pdf_paths, save_path)
+            QMessageBox.information(self, "Erfolg", f"PDFs erfolgreich zusammengefügt und gespeichert unter:\n{save_path}")
+            self.pdf_paths = []
+            self.file_list.clear()
+            self.merge_button.setEnabled(False)
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", f"Fehler beim Zusammenfügen der PDFs:\n{str(e)}")
