@@ -34,13 +34,7 @@ Befolgen Sie diese Schritte, um die Anwendung im Terminal einzurichten und zu st
    pip install -r requirements.txt
    ```
 
-4. **(Optional) Installieren Sie zusätzliche Pakete**  
-   Obwohl dies normalerweise nicht notwendig ist, können Sie `PyQt5` und `PyMuPDF` explizit installieren:
-   ```bash
-   .venv\Scripts\python.exe -m pip install pyQt5 pyMuPDF
-   ```
-
-5. **Starten Sie die Anwendung**  
+4. **Starten Sie die Anwendung**  
    Führen Sie die Anwendung mit dem folgenden Befehl aus:
    ```bash
    python run.py
