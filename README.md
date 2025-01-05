@@ -2,11 +2,6 @@
 
 Ein einfaches PDF-Tool mit einer grafischen Oberfläche (PyQt5) und Funktionen zur PDF-Bearbeitung (PyMuPDF).
 
-## Installation
-
-```bash
-pip install -r requirements.txt
-
 ## So starten Sie die Anwendung
 
 Befolgen Sie diese Schritte, um die Anwendung im Terminal einzurichten und zu starten:
