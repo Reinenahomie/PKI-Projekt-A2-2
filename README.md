@@ -10,5 +10,6 @@ pip install -r requirements.txt
 Create a Virtual environment
 .\.venv\Scripts\Activate
 pip install -r requirements.txt
+# die nachfolgende Anweisung ist nicht notwendig    
 .venv\Scripts\python.exe -m pip install pyQt5 pyMuPDF
 python run.py

@@ -164,33 +164,96 @@ def extract_zugferd_data(pdf_path):
     try:
         doc = fitz.open(pdf_path)
         
-        # Eingebettete Dateien durchsuchen
-        for i in range(doc.embfile_count()):  # Anzahl der eingebetteten Dateien
-            # Informationen zur eingebetteten Datei abrufen
+        for i in range(doc.embfile_count()):
             embfile_info = doc.embfile_info(i)
             filename = embfile_info["filename"]
             
-            # Prüfen, ob es sich um eine XML-Datei handelt
             if filename.lower().endswith(".xml"):
-                # XML-Inhalt extrahieren
                 xml_data = doc.embfile_get(i)
                 xml_string = xml_data.decode('utf-8')
                 
-                # XML-Daten parsen
                 import xml.etree.ElementTree as ET
                 root = ET.fromstring(xml_string)
                 
-                # Namespace-Definition für ZUGFeRD
-                ns = {
-                    'ram': 'urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:12',
-                    'udt': 'urn:un:unece:uncefact:data:standard:UnqualifiedDataType:15'
-                }
+                # ZUGFeRD-Version ermitteln
+                version = "1.0"  # Standard-Version
+                try:
+                    # Für ZUGFeRD 2.0
+                    if "CrossIndustryInvoice:100" in xml_string:
+                        version = "2.0"
+                        ns = {
+                            'ram': 'urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100',
+                            'rsm': 'urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100',
+                            'udt': 'urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100',
+                            'qdt': 'urn:un:unece:uncefact:data:standard:QualifiedDataType:100'
+                        }
+                    # Für ZUGFeRD 1.0
+                    else:
+                        ns = {
+                            'ram': 'urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:12',
+                            'udt': 'urn:un:unece:uncefact:data:standard:UnqualifiedDataType:15'
+                        }
+                    print(f"Erkannte ZUGFeRD-Version: {version}")
+                except Exception as e:
+                    print(f"Fehler bei der Versionserkennung: {e}")
+                
+                def safe_find_multiple(xpaths_by_version):
+                    """Sucht nach Version-spezifischen XPaths"""
+                    xpaths = xpaths_by_version.get(version, xpaths_by_version["1.0"])
+                    for xpath in xpaths:
+                        element = root.find(xpath, ns)
+                        if element is not None and element.text:
+                            return element.text
+                    return "Nicht verfügbar"
                 
                 parsed_data = {
-                    'Rechnungsnummer': root.find('.//ram:ID', ns).text,
-                    'Datum': root.find('.//ram:IssueDateTime/udt:DateTimeString', ns).text,
-                    'Gesamtbetrag': root.find('.//ram:GrandTotalAmount', ns).text,
-                    # Weitere Felder...
+                    'Rechnungsnummer': safe_find_multiple({
+                        "1.0": [
+                            './/ram:ExchangedDocument/ram:ID',  # ZUGFeRD 1.0 Pfad
+                            './/ram:InvoiceNumber'  # Alternativer Pfad
+                        ],
+                        "2.0": [
+                            './/rsm:ExchangedDocument/ram:ID',  # ZUGFeRD 2.0 Pfad
+                            './/ram:InvoiceNumber',
+                            './/ram:ID'
+                        ]
+                    }),
+                    'Datum': safe_find_multiple({
+                        "1.0": ['.//ram:IssueDateTime/udt:DateTimeString'],
+                        "2.0": ['.//ram:IssueDateTime/udt:DateTimeString', './/ram:FormattedIssueDateTime']
+                    }),
+                    'Gesamtbetrag': safe_find_multiple({
+                        "1.0": ['.//ram:GrandTotalAmount'],
+                        "2.0": ['.//ram:GrandTotalAmount', './/ram:DuePayableAmount']
+                    }),
+                    'Währung': safe_find_multiple({
+                        "1.0": ['.//ram:InvoiceCurrencyCode'],
+                        "2.0": ['.//ram:InvoiceCurrencyCode', './/ram:CurrencyCode']
+                    }),
+                    'Verkäufer': safe_find_multiple({
+                        "1.0": ['.//ram:SellerTradeParty/ram:Name', './/ram:Seller'],
+                        "2.0": ['.//ram:SellerTradeParty/ram:Name', './/ram:Seller']
+                    }),
+                    'Käufer': safe_find_multiple({
+                        "1.0": ['.//ram:BuyerTradeParty/ram:Name', './/ram:Buyer'],
+                        "2.0": ['.//ram:BuyerTradeParty/ram:Name', './/ram:Buyer']
+                    }),
+                    'Nettobetrag': safe_find_multiple({
+                        "1.0": ['.//ram:LineTotalAmount'],
+                        "2.0": ['.//ram:LineTotalAmount', './/ram:NetAmount']
+                    }),
+                    'Steuerbetrag': safe_find_multiple({
+                        "1.0": ['.//ram:TaxTotalAmount'],
+                        "2.0": ['.//ram:TaxTotalAmount', './/ram:TaxAmount']
+                    }),
+                    'Zahlungsbedingungen': safe_find_multiple({
+                        "1.0": ['.//ram:PaymentTerms/ram:Description'],
+                        "2.0": ['.//ram:PaymentTerms/ram:Description', './/ram:PaymentTerms']
+                    }),
+                    'Leistungsdatum': safe_find_multiple({
+                        "1.0": ['.//ram:ActualDeliverySupplyChainEvent/ram:OccurrenceDateTime/udt:DateTimeString'],
+                        "2.0": ['.//ram:ActualDeliverySupplyChainEvent/ram:OccurrenceDateTime/udt:DateTimeString', './/ram:ActualDeliverySupplyChainEvent/ram:OccurrenceDateTime']
+                    })
                 }
                 
                 return xml_string, parsed_data
