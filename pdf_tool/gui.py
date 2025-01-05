@@ -34,8 +34,6 @@ class HomeWidget(QWidget):
         self.setLayout(layout)
 
 
-
-
 class PDFPreviewWidget(QWidget):
     def __init__(self, stacked_widget, parent=None):
         super().__init__(parent)
@@ -309,7 +307,7 @@ class MainWindow(QMainWindow):
         # Startseite mit Bild und instanziierten Widgets 
 
         self.page_home = HomeWidget()
-        self.page_pdf_to_word = QWidget()  
+        self.page_pdf_to_word = QWidget()  # Muss durch Delia angepasst werden
         self.page_extract_images = PDFImageExtractorWidget(self.stacked_widget)  # Neues Widget
         self.page_merge_pdf = PDFZusammenfuegen(self.stacked_widget)
         self.page_pdf_preview = PDFPreviewWidget(self.stacked_widget)
