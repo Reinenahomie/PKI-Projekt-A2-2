@@ -1,6 +1,7 @@
 import os
 import fitz  # PyMuPDF
 import zipfile
+from docx import Document
 from PyQt5.QtWidgets import QFileDialog, QPushButton
 
 def load_pdf(pdf_path):
@@ -24,6 +25,37 @@ def render_page(pdf_path, page_number, zoom_factor=1.0):
         return pix
     except Exception as e:
         raise RuntimeError(f"Fehler beim Rendern der Seite {page_number}: {e}")
+
+
+def pdf_to_word(pdf_path, output_dir):
+    """
+    Diese Funktion extrahiert den Text aus einer PDF und speichert ihn in einem Word-Dokument.
+    
+    :param pdf_path: Der Pfad zur PDF-Datei.
+    :param output_dir: Der Pfad, unter dem das Word-Dokument gespeichert werden soll.
+    """
+    try:
+        # Öffne die PDF mit PyMuPDF
+        pdf_document = fitz.open(pdf_path)
+        
+        # Erstelle ein neues Word-Dokument
+        doc = Document()
+        
+        # Gehe alle Seiten der PDF durch und extrahiere den Text
+        for page_num in range(pdf_document.page_count):
+            page = pdf_document.load_page(page_num)  # Seite laden
+            text = page.get_text()  # Text der Seite extrahieren
+            
+            # Füge den extrahierten Text zum Word-Dokument hinzu
+            doc.add_paragraph(text)
+        
+        # Speichere das Word-Dokument
+        doc.save(output_dir)
+        
+        print(f"Das PDF wurde erfolgreich in ein Word-Dokument umgewandelt: {output_dir}")
+    
+    except Exception as e:
+        print(f"Fehler beim Umwandeln der PDF: {str(e)}")
 
 def split_pdf_into_pages(pdf_path, output_dir):
     """
