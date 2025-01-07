@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog,
     QLabel, QGridLayout, QScrollArea, QSpinBox, QStackedWidget, QComboBox, QMessageBox, QListWidget
 )
+from pdf2docx import Converter
 from PyQt5.QtGui import QPixmap, QIcon, QFont, QImage
 from PyQt5.QtCore import Qt, QSize
 from .pdfImageExtractorWidget import PDFImageExtractorWidget  # Importiere das neue Widget
@@ -32,6 +33,8 @@ class HomeWidget(QWidget):
 
         layout.addWidget(label)
         self.setLayout(layout)
+
+
 
 
 class PDFPreviewWidget(QWidget):
@@ -307,7 +310,7 @@ class MainWindow(QMainWindow):
         # Startseite mit Bild und instanziierten Widgets 
 
         self.page_home = HomeWidget()
-        self.page_pdf_to_word = QWidget()  # Muss durch Delia angepasst werden
+        self.page_pdf_to_word = pdftoword(self.stacked_widget) 
         self.page_extract_images = PDFImageExtractorWidget(self.stacked_widget)  # Neues Widget
         self.page_merge_pdf = PDFZusammenfuegen(self.stacked_widget)
         self.page_pdf_preview = PDFPreviewWidget(self.stacked_widget)
@@ -440,3 +443,70 @@ class PDFZusammenfuegen(QWidget):
             self.merge_button.setEnabled(False)
         except Exception as e:
             QMessageBox.critical(self, "Fehler", f"Fehler beim Zusammenfügen der PDFs:\n{str(e)}")
+
+
+class pdftoword(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+
+        label = QLabel("PDF to Word")
+        label.setFont(QFont("Arial", 20))
+        label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(label)
+
+        # List to show selected PDF files
+        self.file_list = QListWidget()
+        layout.addWidget(self.file_list)
+
+        # Button to open files
+        self.open_button = QPushButton("PDF öffnen")
+        self.open_button.clicked.connect(self.open_file_dialog)
+        layout.addWidget(self.open_button)
+
+        # Button to convert PDF to Word
+        self.convert_button = QPushButton("PDF in Word umwandeln")
+        self.convert_button.setEnabled(False)
+        self.convert_button.clicked.connect(self.convert_pdf_to_word)
+        layout.addWidget(self.convert_button)
+
+
+        self.setLayout(layout)
+
+        # Store selected PDF paths
+        self.pdf_paths = []
+
+    def open_file_dialog(self):
+        """Allows users to select a PDF file."""
+        files, _ = QFileDialog.getOpenFileNames(self, "PDF auswählen", "", "PDF Dateien (*.pdf)")
+        if files:
+            self.pdf_paths = files
+            self.file_list.clear()
+            self.file_list.addItems(files)
+            self.convert_button.setEnabled(True)
+
+    def convert_pdf_to_word(self):
+        """Converts the selected PDF to a Word document."""
+        if not self.pdf_paths:
+            QMessageBox.warning(self, "Fehler", "Keine PDF-Datei ausgewählt.")
+            return
+
+        save_path, _ = QFileDialog.getSaveFileName(self, "Word Datei speichern", "output.docx", "Word Dateien (*.docx)")
+        if not save_path:
+            return
+
+        try:
+            # Konvertiere PDF zu Word
+            pdf_file = self.pdf_paths[0]  # Nur die erste ausgewählte PDF wird konvertiert
+            cv = Converter(pdf_file)
+            cv.convert(save_path, start=0, end=None)  # Optional: start und end für Seitenbereich
+            cv.close()
+
+            QMessageBox.information(self, "Erfolg", f"PDF erfolgreich in Word umgewandelt und gespeichert unter:\n{save_path}")
+            self.pdf_paths = []
+            self.file_list.clear()
+            self.convert_button.setEnabled(False)
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", f"Fehler beim Konvertieren der PDF:\n{str(e)}")
