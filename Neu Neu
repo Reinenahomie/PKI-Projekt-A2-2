@@ -1,0 +1,15 @@
+import fitz  # PyMuPDF
+import os
+from tkinter import Tk, filedialog, messagebox
+
+
+def open_pdf_file():
+    """Öffnet einen Datei-Dialog, um eine PDF auszuwählen."""
+    file_path = filedialog.askopenfilename(filetypes=[("PDF Dateien", "*.pdf")])
+    return file_path
+
+def save_pdf_file():
+    """Öffnet einen Dialog, um eine PDF zu speichern."""
+    save_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF Dateien", "*.pdf")])
+    return save_path
+
