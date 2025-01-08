@@ -1,512 +1,335 @@
-import os
 from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog,
-    QLabel, QGridLayout, QScrollArea, QSpinBox, QStackedWidget, QComboBox, QMessageBox, QListWidget
+    QMainWindow, QWidget, QVBoxLayout, QGridLayout, QPushButton,
+    QStackedWidget, QHBoxLayout, QLabel, QMessageBox, QApplication, QFrame
 )
-from pdf2docx import Converter
-from PyQt5.QtGui import QPixmap, QIcon, QFont, QImage
-from PyQt5.QtCore import Qt, QSize
-from .pdfImageExtractorWidget import PDFImageExtractorWidget  # Importiere das neue Widget
-from .pdf_functions import load_pdf, render_page, split_pdf_into_pages, create_zip_from_files, show_pdf_open_dialog, merge_pdfs
-from .config import HOME_IMAGE_PATH  # hier wird der Pfad aus der config geladen
-from .ZugferdReaderWidget import ZugferdReaderWidget  # Importiere das neue Widget
-
-
-class HomeWidget(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        layout = QVBoxLayout()
-        layout.setContentsMargins(20,20,20,20)
-        layout.setSpacing(20)
-
-        label = QLabel()
-        label.setAlignment(Qt.AlignCenter)
-
-        # Lade das Startbild
-        if os.path.exists(HOME_IMAGE_PATH):
-            pixmap = QPixmap(HOME_IMAGE_PATH)
-            # Optional skalieren, wenn zu groß:
-            # pixmap = pixmap.scaled(600, 400, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            label.setPixmap(pixmap)
-        else:
-            label.setText("Startbild nicht gefunden.")
-
-        layout.addWidget(label)
-        self.setLayout(layout)
-
-
-
-
-class PDFPreviewWidget(QWidget):
-    def __init__(self, stacked_widget, parent=None):
-        super().__init__(parent)
-        self.stacked_widget = stacked_widget
-        self.pdf_path = None
-        self.current_page = 0
-        self.total_pages = 0
-        self.zoom_factor = 1.0
-
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(15)
-
-        # Top-Bar mit Exit-Button
-        top_bar = QHBoxLayout()
-        top_bar.addStretch()  # Platzhalter nach links
-        close_button = QPushButton("X")
-        close_button.setFixedSize(40,40)
-        close_button.clicked.connect(self.return_to_home)
-        top_bar.addWidget(close_button)
-        main_layout.addLayout(top_bar)
-
-        self.scroll_area = QScrollArea()
-        self.page_label = QLabel("Lade eine PDF, um die Vorschau anzuzeigen")
-        self.page_label.setAlignment(Qt.AlignCenter)
-        self.scroll_area.setWidget(self.page_label)
-        self.scroll_area.setWidgetResizable(True)
-        main_layout.addWidget(self.scroll_area)
-
-        # Steuerungsbereich
-        controls_layout = QHBoxLayout()
-        controls_layout.setSpacing(10)
-
-        self.previous_button = QPushButton("←")
-        self.previous_button.clicked.connect(self.previous_page)
-        self.previous_button.setEnabled(False)
-        controls_layout.addWidget(self.previous_button)
-
-        self.next_button = QPushButton("→")
-        self.next_button.clicked.connect(self.next_page)
-        self.next_button.setEnabled(False)
-        controls_layout.addWidget(self.next_button)
-
-        self.page_input = QSpinBox()
-        self.page_input.setMinimum(1)
-        self.page_input.setMaximum(1)
-        self.page_input.setValue(1)
-        self.page_input.valueChanged.connect(self.jump_to_page)
-        controls_layout.addWidget(self.page_input)
-
-        self.page_info = QLabel("/ 1")
-        controls_layout.addWidget(self.page_info)
-
-        self.zoom_out_button = QPushButton("−")
-        self.zoom_out_button.clicked.connect(self.zoom_out)
-        controls_layout.addWidget(self.zoom_out_button)
-
-        self.zoom_in_button = QPushButton("+")
-        self.zoom_in_button.clicked.connect(self.zoom_in)
-        controls_layout.addWidget(self.zoom_in_button)
-
-        main_layout.addLayout(controls_layout)
-
-        self.upload_button = QPushButton("PDF öffnen")
-        self.upload_button.clicked.connect(self.open_file_dialog)
-        main_layout.addWidget(self.upload_button)
-
-        self.setLayout(main_layout)
-
-    def return_to_home(self):
-        self.stacked_widget.setCurrentIndex(0)
-
-    def open_file_dialog(self):
-        """Öffnet den Dialog zum Auswählen einer PDF-Datei."""
-        pdf_path = show_pdf_open_dialog(self)
-        if pdf_path:
-            self.load_pdf(pdf_path)
-
-    def load_pdf(self, pdf_path):
-        self.pdf_path = pdf_path
-        self.current_page = 0
-        self.zoom_factor = 1.0
-
-        try:
-            self.total_pages = load_pdf(pdf_path)
-            self.page_input.setMaximum(self.total_pages)
-            self.page_input.setValue(1)
-            self.page_info.setText(f"/ {self.total_pages}")
-
-            self.previous_button.setEnabled(False)
-            self.next_button.setEnabled(self.total_pages > 1)
-
-            self.display_page()
-
-        except Exception as e:
-            self.page_label.setText(str(e))
-
-    def display_page(self):
-        if not self.pdf_path or self.current_page < 0 or self.current_page >= self.total_pages:
-            return
-
-        try:
-            pix = render_page(self.pdf_path, self.current_page, self.zoom_factor)
-            image_path = f"temp_page_{self.current_page}.png"
-            pix.save(image_path)
-
-            pixmap = QPixmap(image_path)
-            self.page_label.setPixmap(pixmap)
-            self.page_label.setAlignment(Qt.AlignCenter)
-
-            os.remove(image_path)
-
-            self.previous_button.setEnabled(self.current_page > 0)
-            self.next_button.setEnabled(self.current_page < self.total_pages - 1)
-            self.page_input.setValue(self.current_page + 1)
-
-        except Exception as e:
-            self.page_label.setText(str(e))
-
-    def previous_page(self):
-        if self.current_page > 0:
-            self.current_page -= 1
-            self.display_page()
-
-    def next_page(self):
-        if self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            self.display_page()
-
-    def jump_to_page(self):
-        requested_page = self.page_input.value() - 1
-        if 0 <= requested_page < self.total_pages:
-            self.current_page = requested_page
-            self.display_page()
-
-    def zoom_in(self):
-        self.zoom_factor += 0.1
-        self.display_page()
-
-    def zoom_out(self):
-        if self.zoom_factor > 0.2:
-            self.zoom_factor -= 0.1
-            self.display_page()
-
-
-class PDFSplitWidget(QWidget):
-    def __init__(self, stacked_widget, parent=None):
-        super().__init__(parent)
-        self.stacked_widget = stacked_widget
-        self.pdf_path = None
-        self.total_pages = 0
-
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(15)
-
-        # Top-Bar mit Exit-Button
-        top_bar = QHBoxLayout()
-        top_bar.addStretch()
-        close_button = QPushButton("X")
-        close_button.setFixedSize(40,40)
-        close_button.clicked.connect(self.return_to_home)
-        top_bar.addWidget(close_button)
-        main_layout.addLayout(top_bar)
-
-        self.options_combo = QComboBox()
-        self.options_combo.addItem("Alle Seiten")
-        main_layout.addWidget(self.options_combo)
-
-        self.upload_button = QPushButton("PDF öffnen")
-        self.upload_button.clicked.connect(self.open_file_dialog)
-        main_layout.addWidget(self.upload_button)
-
-        self.split_button = QPushButton("Trennen starten")
-        self.split_button.setEnabled(False)
-        self.split_button.clicked.connect(self.start_splitting)
-        main_layout.addWidget(self.split_button)
-
-        self.status_label = QLabel("")
-        main_layout.addWidget(self.status_label)
-
-        self.setLayout(main_layout)
-
-    def return_to_home(self):
-        self.stacked_widget.setCurrentIndex(0)
-
-    def open_file_dialog(self):
-        """Öffnet den Dialog zum Auswählen einer PDF-Datei."""
-        pdf_path = show_pdf_open_dialog(self)
-        if pdf_path:
-            self.load_pdf(pdf_path)
-
-    def load_pdf(self, pdf_path):
-        try:
-            self.pdf_path = pdf_path
-            self.total_pages = load_pdf(pdf_path)
-            self.split_button.setEnabled(True)
-            self.status_label.setText(f"PDF geladen: {os.path.basename(pdf_path)} mit {self.total_pages} Seiten.")
-        except Exception as e:
-            self.status_label.setText(str(e))
-
-    def start_splitting(self):
-        if not self.pdf_path or self.total_pages == 0:
-            self.status_label.setText("Keine PDF zum Trennen geladen.")
-            return
-
-        zip_path, _ = QFileDialog.getSaveFileName(self, "ZIP-Datei speichern", "seiten.zip", "ZIP Dateien (*.zip)")
-        if not zip_path:
-            return
-
-        temp_dir = "temp_split"
-        if not os.path.exists(temp_dir):
-            os.makedirs(temp_dir)
-
-        try:
-            page_files = split_pdf_into_pages(self.pdf_path, temp_dir)
-            create_zip_from_files(page_files, zip_path)
-
-            for f in page_files:
-                os.remove(f)
-            os.rmdir(temp_dir)
-
-            self.status_label.setText(f"PDF erfolgreich getrennt. ZIP gespeichert unter: {zip_path}")
-            QMessageBox.information(self, "Erfolg", f"Die PDF wurde erfolgreich getrennt und als ZIP gespeichert:\n{zip_path}")
-
-        except Exception as e:
-            self.status_label.setText(str(e))
-
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
+from .widgets import (
+    HomeWidget, PDFPreviewWidget, PDFSplitWidget, PDFMergeWidget,
+    PDFToWordWidget, PDFImageExtractorWidget, EInvoiceReaderWidget
+)
 
 class MainWindow(QMainWindow):
+    """
+    Hauptfenster der Anwendung.
+    
+    Diese Klasse erstellt das Hauptfenster mit:
+    - Einem Menü-Bereich mit Funktionskacheln
+    - Einem Bereich für die verschiedenen Funktionsansichten
+    - Einem einheitlichen Styling
+    """
     def __init__(self, parent=None):
+        """Initialisiert das Hauptfenster und setzt alle UI-Komponenten auf."""
         super().__init__(parent)
+        # Setze Fenstertitel und Grundabmessungen
         self.setWindowTitle("PDF Tool")
-        self.setGeometry(100, 100, 1000, 600)
-
-        # Hauptlayout des Fensters
-        central_widget = QWidget()
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(20)
-
-        # Menü-Bereich (am oberen Rand)
-        self.menu_widget = QWidget()
-        menu_layout = QGridLayout(self.menu_widget)
-        menu_layout.setSpacing(20)
-        menu_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Kacheln erstellen (mit Icons optional)
-        pdf_to_word_button = self.create_tile_button("PDF to Word")
-        extract_images_button = self.create_tile_button("Bilder extrahieren")
-        merge_pdf_button = self.create_tile_button("PDF zusammenfügen")
-        pdf_preview_button = self.create_tile_button("PDF Vorschau")
-        split_pdf_button = self.create_tile_button("PDF trennen")
-        zugferd_button = self.create_tile_button("ZUGFeRD Rechnung")
-
-        # Buttons in 2x3 Grid anordnen
-        menu_layout.addWidget(pdf_to_word_button, 0, 0)    # Erste Reihe
-        menu_layout.addWidget(extract_images_button, 0, 1)
-        menu_layout.addWidget(merge_pdf_button, 0, 2)
         
-        menu_layout.addWidget(pdf_preview_button, 1, 0)    # Zweite Reihe
-        menu_layout.addWidget(split_pdf_button, 1, 1)
-        menu_layout.addWidget(zugferd_button, 1, 2)
-
-        self.menu_widget.setLayout(menu_layout)
+        # Hole die Bildschirmgröße
+        screen = QApplication.primaryScreen().availableGeometry()
+        # Setze die Fenstergröße auf 70% der Bildschirmhöhe und 40% der Breite
+        window_height = int(screen.height() * 0.7)
+        window_width = int(screen.width() * 0.4)
+        # Zentriere das Fenster
+        x = (screen.width() - window_width) // 2
+        y = (screen.height() - window_height) // 2
+        self.setGeometry(x, y, window_width, window_height)
+        
+        # Aktuelle PDF-Datei
+        self.current_pdf_path = None
+        
+        # Erstelle das zentrale Widget und Hauptlayout
+        central_widget = QWidget()
+        main_layout = QHBoxLayout()  # Horizontales Layout für Buttons links, Inhalt rechts
+        main_layout.setContentsMargins(10, 10, 10, 10)  # Reduziere die Ränder
+        main_layout.setSpacing(10)  # Reduziere den Abstand zwischen Menü und Inhalt
+        
+        # Erstelle den Menü-Bereich für die Funktionskacheln
+        self.menu_widget = QWidget()
+        menu_layout = QVBoxLayout(self.menu_widget)  # Vertikales Layout für Buttons
+        menu_layout.setSpacing(10)
+        menu_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Erstelle die Funktionskacheln (Buttons)
+        open_file_button = self.create_tile_button("Datei öffnen")
+        split_pdf_button = self.create_tile_button("PDF trennen")
+        pdf_to_word_button = self.create_tile_button("PDF to Word")
+        merge_pdf_button = self.create_tile_button("PDF zusammenfügen")
+        extract_images_button = self.create_tile_button("Bilder extrahieren")
+        e_invoice_button = self.create_tile_button("E-Rechnung anzeigen")
+        close_file_button = self.create_tile_button("Datei schließen")
+        
+        # Initial alle Funktions-Buttons deaktivieren
+        split_pdf_button.setEnabled(False)
+        pdf_to_word_button.setEnabled(False)
+        merge_pdf_button.setEnabled(False)
+        extract_images_button.setEnabled(False)
+        e_invoice_button.setEnabled(False)
+        close_file_button.setEnabled(False)
+        
+        # Speichere die Buttons als Instanzvariablen für späteren Zugriff
+        self.function_buttons = {
+            'split': split_pdf_button,
+            'word': pdf_to_word_button,
+            'merge': merge_pdf_button,
+            'images': extract_images_button,
+            'invoice': e_invoice_button,
+            'close': close_file_button
+        }
+        
+        # Füge die Buttons vertikal hinzu
+        menu_layout.addWidget(open_file_button)
+        menu_layout.addWidget(split_pdf_button)
+        menu_layout.addWidget(pdf_to_word_button)
+        menu_layout.addWidget(merge_pdf_button)
+        menu_layout.addWidget(extract_images_button)
+        menu_layout.addWidget(e_invoice_button)
+        menu_layout.addWidget(close_file_button)
+        
+        # Trennlinie für Aktions-Buttons (initial versteckt)
+        self.action_separator = QFrame()
+        self.action_separator.setFrameShape(QFrame.HLine)
+        self.action_separator.setFrameShadow(QFrame.Sunken)
+        self.action_separator.hide()
+        menu_layout.addWidget(self.action_separator)
+        
+        # Container für die Aktions-Buttons (initial versteckt)
+        self.action_buttons_container = QWidget()
+        self.action_buttons_layout = QVBoxLayout(self.action_buttons_container)
+        self.action_buttons_layout.setContentsMargins(0, 10, 0, 0)
+        self.action_buttons_layout.setSpacing(10)
+        self.action_buttons_container.hide()
+        menu_layout.addWidget(self.action_buttons_container)
+        
+        menu_layout.addStretch()  # Fügt flexiblen Platz am Ende hinzu
+        
+        # Füge das Menü-Layout zum Hauptlayout hinzu
         main_layout.addWidget(self.menu_widget)
-
-        # Stacked Widget für unterschiedliche Ansichten
+        
+        # Erstelle den Stapel-Widget-Container für die verschiedenen Ansichten
         self.stacked_widget = QStackedWidget()
-
-        # Startseite mit Bild und instanziierten Widgets 
-
+        main_layout.addWidget(self.stacked_widget)
+        
+        # Initialisiere alle Funktions-Widgets
         self.page_home = HomeWidget()
-        self.page_pdf_to_word = pdftoword(self.stacked_widget) 
-        self.page_extract_images = PDFImageExtractorWidget(self.stacked_widget)  # Neues Widget
-        self.page_merge_pdf = PDFZusammenfuegen(self.stacked_widget)
+        self.page_pdf_to_word = PDFToWordWidget(self.stacked_widget)
+        self.page_extract_images = PDFImageExtractorWidget(self.stacked_widget)
+        self.page_merge_pdf = PDFMergeWidget(self.stacked_widget)
         self.page_pdf_preview = PDFPreviewWidget(self.stacked_widget)
         self.page_split_pdf = PDFSplitWidget(self.stacked_widget)
-        self.page_zugferd = ZugferdReaderWidget(self.stacked_widget)
-
-        self.stacked_widget.addWidget(self.page_home)           # Index 0 (Startseite)
-        self.stacked_widget.addWidget(self.page_pdf_to_word)    # Index 1
-        self.stacked_widget.addWidget(self.page_extract_images) # Index 2
-        self.stacked_widget.addWidget(self.page_merge_pdf)      # Index 3
-        self.stacked_widget.addWidget(self.page_pdf_preview)    # Index 4
-        self.stacked_widget.addWidget(self.page_split_pdf)      # Index 5
-        self.stacked_widget.addWidget(self.page_zugferd)        # Index 6
-
-        main_layout.addWidget(self.stacked_widget)
-
+        self.page_zugferd = EInvoiceReaderWidget(self.stacked_widget)
+        
+        # Füge alle Widgets zum Stapel hinzu
+        self.stacked_widget.addWidget(self.page_home)
+        self.stacked_widget.addWidget(self.page_pdf_to_word)
+        self.stacked_widget.addWidget(self.page_extract_images)
+        self.stacked_widget.addWidget(self.page_merge_pdf)
+        self.stacked_widget.addWidget(self.page_pdf_preview)
+        self.stacked_widget.addWidget(self.page_split_pdf)
+        self.stacked_widget.addWidget(self.page_zugferd)
+        
+        # Verbinde die Buttons mit ihren jeweiligen Funktionen
+        open_file_button.clicked.connect(self.page_pdf_preview.open_file_dialog)
+        split_pdf_button.clicked.connect(self.start_pdf_split)
+        pdf_to_word_button.clicked.connect(self.start_pdf_to_word)
+        merge_pdf_button.clicked.connect(self.switch_to_pdf_merger)
+        extract_images_button.clicked.connect(self.switch_to_image_extractor)
+        e_invoice_button.clicked.connect(lambda: self.switch_page(6, "PDF Tool - E-Rechnung anzeigen"))
+        close_file_button.clicked.connect(self.close_current_pdf)
+        
+        # Setze das Hauptlayout für das zentrale Widget
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
-
-        # Verknüpfungen der Buttons mit den jeweiligen Seiten
-        pdf_to_word_button.clicked.connect(lambda: self.switch_page(1, "PDF Tool - PDF to Word"))
-        extract_images_button.clicked.connect(lambda: self.switch_page(2, "PDF Tool - Bilder extrahieren"))
-        merge_pdf_button.clicked.connect(lambda: self.switch_page(3, "PDF Tool - PDF zusammenfügen"))
-        pdf_preview_button.clicked.connect(lambda: self.switch_page(4, "PDF Tool - PDF Vorschau"))
-        split_pdf_button.clicked.connect(lambda: self.switch_page(5, "PDF Tool - PDF trennen"))
-        zugferd_button.clicked.connect(lambda: self.switch_page(6, "PDF Tool - ZUGFeRD Rechnung"))
         
-        # Stylesheet anwenden
+        # Wende das definierte Stylesheet auf das Fenster an
         self.apply_stylesheet()
 
     def apply_stylesheet(self):
+        """
+        Wendet das CSS-ähnliche Styling auf die Anwendung an.
+        Definiert das Aussehen verschiedener UI-Elemente.
+        """
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #f5f5f5;
-                font-family: 'Segoe UI';
-                font-size: 14px;
+                background-color: #f5f5f5;  /* Hintergrundfarbe */
+                font-family: 'Segoe UI';    /* Schriftart */
+                font-size: 14px;            /* Schriftgröße */
             }
             QPushButton {
-                background-color: #ffffff;
-                border: 1px solid #cccccc;
-                border-radius: 3px;
-                padding: 10px;
-                font-size: 15px;
-                text-align: center;
-                font-weight: 500;
+                background-color: #ffffff;   /* Button-Hintergrund */
+                border: 1px solid #cccccc;   /* Button-Rahmen */
+                border-radius: 3px;          /* Abgerundete Ecken */
+                padding: 10px;               /* Innenabstand */
+                font-size: 15px;             /* Button-Schriftgröße */
+                text-align: center;          /* Text-Ausrichtung */
+                font-weight: 500;            /* Schriftstärke */
             }
             QPushButton:hover {
-                background-color: #f0f0f0;
-                border-color: #999999;
+                background-color: #f0f0f0;   /* Hover-Effekt */
+                border-color: #999999;       /* Dunklerer Rahmen beim Hover */
             }
             QLabel {
-                font-size: 14px;
+                font-size: 14px;             /* Label-Schriftgröße */
             }
             QScrollArea {
-                border: none;
+                border: none;                /* Keine Rahmen für Scroll-Bereiche */
             }
         """)
 
-    def create_tile_button(self, text, icon_path=None):
+    def create_tile_button(self, text):
+        """
+        Erstellt einen formatierten Button für das Hauptmenü.
+        
+        Args:
+            text (str): Der anzuzeigende Text auf dem Button
+            
+        Returns:
+            QPushButton: Ein formatierter Button mit fester Größe
+        """
         button = QPushButton(text)
-        button.setFixedSize(300, 60)
+        button.setFixedWidth(250)  # Feste Breite für einheitliches Aussehen
+        button.setMinimumHeight(40)  # Minimale Höhe
         return button
 
+    def enable_function_buttons(self):
+        """Aktiviert alle Funktions-Buttons nachdem eine Datei geladen wurde."""
+        for button in self.function_buttons.values():
+            button.setEnabled(True)
+
     def switch_page(self, index, title):
-        """Wechselt die Seite und aktualisiert den Fenstertitel."""
+        """
+        Wechselt zu einer anderen Ansicht und aktualisiert den Fenstertitel.
+        
+        Args:
+            index (int): Der Index der anzuzeigenden Seite im Stapel-Widget
+            title (str): Der neue Fenstertitel
+        """
+        # Setze zuerst den Index und Titel
         self.stacked_widget.setCurrentIndex(index)
         self.setWindowTitle(title)
+        
+        # Verstecke Aktions-Buttons, wenn nicht auf Bilder extrahieren oder PDF zusammenfügen
+        if index not in [2, 3]:  # 2 = Bilder extrahieren, 3 = PDF zusammenfügen
+            self.hide_action_buttons()
+            
+        # Zeige Info-Text für E-Rechnung
+        if index == 6:  # 6 = E-Rechnung anzeigen
+            self.show_action_buttons([], "Zeigt die ZUGFeRD-Daten der geöffneten PDF-Datei an.")
 
-    # Methode für die Rückkehr zur Startseite (in allen Widgets verwenden)
-    def return_to_home(self):
-        self.stacked_widget.setCurrentIndex(0)
-        self.setWindowTitle("PDF Tool")  # Zurück zum Standard-Titel
+    def set_current_pdf(self, pdf_path):
+        """Setzt den Pfad zur aktuell geöffneten PDF-Datei."""
+        self.current_pdf_path = pdf_path
+        # Aktiviere die Funktions-Buttons
+        self.enable_function_buttons()
+        
+    def get_current_pdf(self):
+        """Gibt den Pfad zur aktuell geöffneten PDF-Datei zurück."""
+        return self.current_pdf_path
 
+    def switch_to_image_extractor(self):
+        """Wechselt zum Bild-Extraktor und aktualisiert die Vorschau."""
+        # Aktions-Buttons für Bildextraktor anzeigen
+        self.show_action_buttons(
+            [
+                ("Bilder speichern", self.page_extract_images.extract_images),
+                ("Bilder als ZIP speichern", self.page_extract_images.extract_images_to_zip)
+            ],
+            "Extrahieren Sie Bilder aus der geöffneten PDF-Datei."
+        )
+        
+        # Wechsle zur Ansicht und zeige Vorschau
+        self.switch_page(2, "PDF Tool - Bilder extrahieren")
+        self.page_extract_images.show_preview()
 
-class PDFZusammenfuegen(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        layout = QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
+    def switch_to_pdf_merger(self):
+        """Wechselt zum PDF-Zusammenfügen-Widget."""
+        # Aktions-Buttons für PDF-Zusammenfügen anzeigen
+        self.show_action_buttons(
+            [
+                ("Weitere PDF hinzufügen", self.page_merge_pdf.add_pdf),
+                ("Ausgewählte PDF entfernen", self.page_merge_pdf.remove_selected_pdf),
+                ("Gesamtes PDF speichern", self.page_merge_pdf.merge_pdfs)
+            ],
+            "Fügen Sie mehrere PDF-Dateien zu einem Dokument zusammen."
+        )
+        
+        # Wechsle zur Ansicht
+        self.switch_page(3, "PDF Tool - PDF zusammenfügen")
 
-        label = QLabel("PDF Zusammenfügen")
-        label.setFont(QFont("Arial", 20))
-        label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(label)
+    def show_action_buttons(self, button_configs, info_text=None):
+        """
+        Zeigt die Aktions-Buttons für das aktuelle Widget an.
+        
+        Args:
+            button_configs: Liste von Tupeln (Button-Text, Callback-Funktion)
+            info_text: Optionaler Erklärungstext
+        """
+        # Lösche alte Buttons
+        for i in reversed(range(self.action_buttons_layout.count())): 
+            self.action_buttons_layout.itemAt(i).widget().setParent(None)
+        
+        # Füge neue Buttons hinzu
+        for text, callback in button_configs:
+            button = self.create_tile_button(text)
+            button.clicked.connect(callback)
+            self.action_buttons_layout.addWidget(button)
+        
+        # Zeige Trennlinie und Container
+        self.action_separator.show()
+        self.action_buttons_container.show()
+        
+        # Füge Info-Text hinzu, wenn vorhanden
+        if info_text:
+            # Zweite Trennlinie vor dem Info-Text
+            info_separator = QFrame()
+            info_separator.setFrameShape(QFrame.HLine)
+            info_separator.setFrameShadow(QFrame.Sunken)
+            info_separator.setFixedWidth(250)
+            self.action_buttons_layout.addWidget(info_separator)
+            
+            # Info-Text
+            info_label = QLabel(info_text)
+            info_label.setWordWrap(True)
+            info_label.setFixedWidth(250)
+            info_label.setStyleSheet("""
+                QLabel {
+                    padding: 10px;
+                    background-color: transparent;
+                }
+            """)
+            self.action_buttons_layout.addWidget(info_label)
 
-        # List to show selected PDF files
-        self.file_list = QListWidget()
-        layout.addWidget(self.file_list)
+    def hide_action_buttons(self):
+        """Versteckt die Aktions-Buttons."""
+        self.action_separator.hide()
+        self.action_buttons_container.hide()
 
-        # Button to open files
-        self.open_button = QPushButton("PDF hinzufügen")
-        self.open_button.clicked.connect(self.open_file_dialog)
-        layout.addWidget(self.open_button)
+    def close_current_pdf(self):
+        """Schließt die aktuell geöffnete PDF-Datei."""
+        self.current_pdf_path = None
+        # Deaktiviere alle Funktions-Buttons
+        for button in self.function_buttons.values():
+            button.setEnabled(False)
+        # Wechsle zur Startseite
+        self.switch_page(0, "PDF Tool")
 
-        # Button to merge files
-        self.merge_button = QPushButton("PDFs zusammenfügen")
-        self.merge_button.setEnabled(False)
-        self.merge_button.clicked.connect(self.merge_pdfs)
-        layout.addWidget(self.merge_button)
+    def start_pdf_split(self):
+        """Startet den PDF-Trennvorgang."""
+        self.show_action_buttons([], "Trennen Sie die PDF-Datei in einzelne Seiten auf.")
+        self.switch_page(5, "PDF Tool - PDF trennen")
+        # Starte die Trennung direkt
+        self.page_split_pdf.split_pdf()
 
-        self.setLayout(layout)
+    def start_pdf_to_word(self):
+        """Startet die PDF zu Word Konvertierung."""
+        self.show_action_buttons([], "Konvertieren Sie die PDF-Datei in ein Word-Dokument.")
+        self.switch_page(1, "PDF Tool - PDF to Word")
+        # Starte die Konvertierung direkt
+        self.page_pdf_to_word.convert_to_word()
 
-        # Store selected PDF paths
-        self.pdf_paths = []
-
-    def open_file_dialog(self):
-        """Allows users to select one or more PDF files."""
-        files, _ = QFileDialog.getOpenFileNames(self, "PDFs auswählen", "", "PDF Dateien (*.pdf)")
-        if files:
-            self.pdf_paths.extend(files)
-            self.file_list.addItems(files)
-            self.merge_button.setEnabled(True)
-
-    def merge_pdfs(self):
-        """Merges the selected PDFs."""
-        if not self.pdf_paths:
-            QMessageBox.warning(self, "Fehler", "Keine PDF-Dateien ausgewählt.")
-            return
-
-        save_path, _ = QFileDialog.getSaveFileName(self, "PDF speichern", "zusammengefuegt.pdf", "PDF Dateien (*.pdf)")
-        if not save_path:
-            return
-
-        try:
-            merge_pdfs(self.pdf_paths, save_path)
-            QMessageBox.information(self, "Erfolg", f"PDFs erfolgreich zusammengefügt und gespeichert unter:\n{save_path}")
-            self.pdf_paths = []
-            self.file_list.clear()
-            self.merge_button.setEnabled(False)
-        except Exception as e:
-            QMessageBox.critical(self, "Fehler", f"Fehler beim Zusammenfügen der PDFs:\n{str(e)}")
-
-
-class pdftoword(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        layout = QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
-
-        label = QLabel("PDF to Word")
-        label.setFont(QFont("Arial", 20))
-        label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(label)
-
-        # List to show selected PDF files
-        self.file_list = QListWidget()
-        layout.addWidget(self.file_list)
-
-        # Button to open files
-        self.open_button = QPushButton("PDF öffnen")
-        self.open_button.clicked.connect(self.open_file_dialog)
-        layout.addWidget(self.open_button)
-
-        # Button to convert PDF to Word
-        self.convert_button = QPushButton("PDF in Word umwandeln")
-        self.convert_button.setEnabled(False)
-        self.convert_button.clicked.connect(self.convert_pdf_to_word)
-        layout.addWidget(self.convert_button)
-
-
-        self.setLayout(layout)
-
-        # Store selected PDF paths
-        self.pdf_paths = []
-
-    def open_file_dialog(self):
-        """Allows users to select a PDF file."""
-        files, _ = QFileDialog.getOpenFileNames(self, "PDF auswählen", "", "PDF Dateien (*.pdf)")
-        if files:
-            self.pdf_paths = files
-            self.file_list.clear()
-            self.file_list.addItems(files)
-            self.convert_button.setEnabled(True)
-
-    def convert_pdf_to_word(self):
-        """Converts the selected PDF to a Word document."""
-        if not self.pdf_paths:
-            QMessageBox.warning(self, "Fehler", "Keine PDF-Datei ausgewählt.")
-            return
-
-        save_path, _ = QFileDialog.getSaveFileName(self, "Word Datei speichern", "output.docx", "Word Dateien (*.docx)")
-        if not save_path:
-            return
-
-        try:
-            # Konvertiere PDF zu Word
-            pdf_file = self.pdf_paths[0]  # Nur die erste ausgewählte PDF wird konvertiert
-            cv = Converter(pdf_file)
-            cv.convert(save_path, start=0, end=None)  # Optional: start und end für Seitenbereich
-            cv.close()
-
-            QMessageBox.information(self, "Erfolg", f"PDF erfolgreich in Word umgewandelt und gespeichert unter:\n{save_path}")
-            self.pdf_paths = []
-            self.file_list.clear()
-            self.convert_button.setEnabled(False)
-        except Exception as e:
-            QMessageBox.critical(self, "Fehler", f"Fehler beim Konvertieren der PDF:\n{str(e)}")
+    def show_pdf_merge(self):
+        """Zeigt das PDF Merge Widget an."""
+        if not hasattr(self, 'pdf_merge_widget'):
+            self.pdf_merge_widget = PDFMergeWidget(self.stacked_widget)
+            self.stacked_widget.addWidget(self.pdf_merge_widget)
+        self.stacked_widget.setCurrentWidget(self.pdf_merge_widget)
+        self.setWindowTitle("PDF Tool - PDF zusammenfügen")

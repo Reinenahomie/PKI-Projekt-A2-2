@@ -7,18 +7,43 @@ env/
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
 
 # Distribution / packaging
 dist/
 build/
 *.egg-info/
+*.egg
 
 # IDE settings
 .vscode/
 .idea/
+*.sublime-workspace
+*.sublime-project
 
 # MacOS system files
 .DS_Store
 .AppleDouble
 .LSOverride
-._* 
+._*
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temporary files
+temp_preview/
+temp_split/
+*.tmp
+*.temp
+
+# Export directory
+export_folder
+
+# Excluded file types (optional)
+# *.docx
+# *.doc
+
+# Log files
+*.log 
