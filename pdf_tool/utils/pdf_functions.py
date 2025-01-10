@@ -1,3 +1,45 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+PDF Tool - PDF Funktionen
+
+Implementiert grundlegende Funktionen für die Verarbeitung von PDF-Dokumenten.
+Diese Funktionen werden von den verschiedenen Widgets des PDF Tools verwendet
+und bieten eine einheitliche Schnittstelle für PDF-Operationen.
+
+Funktionen:
+- PDF Laden und Rendern
+- Dateidialoge und Benutzerinteraktion
+- PDF Konvertierung (Word, Einzelseiten)
+- Bildextraktion und -verarbeitung
+- ZUGFeRD Datenextraktion
+- Hilfsfunktionen für Text und Dateien
+
+Technische Details:
+- Basiert auf PyMuPDF (fitz) für PDF-Verarbeitung
+- Verwendet pdf2docx für Word-Konvertierung
+- Integriert Qt-Dialoge für Benutzerinteraktion
+- Optimierte Speicher- und Ressourcenverwaltung
+- Fehlerbehandlung und Logging
+
+Verwendung:
+    # PDF laden und rendern
+    pages = load_pdf('dokument.pdf')
+    image = render_page('dokument.pdf', 0, 1.0)
+    
+    # PDF konvertieren
+    pdf_to_word('dokument.pdf', 'ausgabe.docx')
+    
+    # Bilder extrahieren
+    images = extract_images_from_pdf('dokument.pdf', 'bilder/')
+    
+    # ZUGFeRD Daten lesen
+    xml_data = extract_zugferd_data('rechnung.pdf')
+
+Autor: Team A2-2
+"""
+
 import os
 import fitz  # PyMuPDF
 import zipfile
@@ -11,7 +53,22 @@ from pdf2docx import Converter
 from ..config import SAMPLE_PDF_DIR, EXPORT_DIR
 
 def load_pdf(pdf_path):
-    """Lädt ein PDF und gibt die Anzahl der Seiten zurück."""
+    """
+    Lädt ein PDF-Dokument und gibt die Anzahl der Seiten zurück.
+    
+    Diese Funktion öffnet eine PDF-Datei, ermittelt die Gesamtzahl der Seiten
+    und schließt das Dokument wieder. Sie ist nützlich für die initiale
+    Analyse einer PDF-Datei.
+    
+    Args:
+        pdf_path (str): Pfad zur PDF-Datei
+        
+    Returns:
+        int: Anzahl der Seiten im PDF-Dokument
+        
+    Raises:
+        RuntimeError: Wenn die PDF nicht geladen werden kann
+    """
     try:
         pdf_document = fitz.open(pdf_path)
         total_pages = len(pdf_document)
@@ -22,15 +79,22 @@ def load_pdf(pdf_path):
 
 def render_page(pdf_path, page_number, zoom_factor=1.0):
     """
-    Render eine bestimmte Seite mit dem angegebenen Zoom-Faktor.
+    Rendert eine bestimmte Seite einer PDF mit angegebenem Zoom-Faktor.
+    
+    Diese Funktion öffnet die PDF, rendert die gewünschte Seite und erstellt
+    ein Pixmap-Objekt, das für die Anzeige verwendet werden kann. Der
+    Zoom-Faktor ermöglicht die Skalierung der Ausgabe.
     
     Args:
         pdf_path (str): Pfad zur PDF-Datei
-        page_number (int): Nummer der zu rendernden Seite
+        page_number (int): Nummer der zu rendernden Seite (0-basiert)
         zoom_factor (float): Zoom-Faktor für die Darstellung (Standard: 1.0)
         
     Returns:
         fitz.Pixmap: Das gerenderte Seitenbild
+        
+    Raises:
+        RuntimeError: Wenn die Seite nicht gerendert werden kann
     """
     try:
         pdf_document = fitz.open(pdf_path)
@@ -46,6 +110,10 @@ def render_page(pdf_path, page_number, zoom_factor=1.0):
 def show_pdf_open_dialog(parent, title="PDF auswählen"):
     """
     Zeigt einen einheitlichen Dialog zum Öffnen von PDF-Dateien.
+    
+    Implementiert einen benutzerfreundlichen Dateiauswahldialog mit deutschen
+    Beschriftungen und standardisierten Einstellungen. Der Dialog startet im
+    konfigurierten Beispiel-PDF-Verzeichnis.
     
     Args:
         parent: Das übergeordnete Widget (für Modal-Dialog)
@@ -86,23 +154,33 @@ def clean_text(text):
     """
     Bereinigt Text von nicht-XML-kompatiblen Zeichen.
     
+    Diese Funktion entfernt problematische Zeichen aus einem Text, behält aber
+    wichtige Formatierungszeichen wie Zeilenumbrüche bei. Sie wird hauptsächlich
+    für die Verarbeitung von XML-Daten verwendet.
+    
     Args:
         text (str): Der zu bereinigende Text
         
     Returns:
-        str: Bereinigter Text
+        str: Bereinigter Text, sicher für XML-Verarbeitung
     """
     # Entferne NULL-Bytes und Steuerzeichen, behalte aber Zeilenumbrüche und Tabulatoren
     return ''.join(char for char in text if char in '\n\t\r' or (ord(char) >= 32 and ord(char) != 127))
 
 def pdf_to_word(pdf_path, output_dir):
     """
-    Diese Funktion konvertiert eine PDF-Datei in ein Word-Dokument.
-    Verwendet pdf2docx für eine bessere Konvertierung mit Formatierung.
+    Konvertiert eine PDF-Datei in ein Word-Dokument.
+    
+    Verwendet die pdf2docx-Bibliothek für eine hochwertige Konvertierung, die
+    Layout, Formatierung und eingebettete Elemente bestmöglich erhält. Die
+    Funktion ist optimiert für komplexe PDF-Dokumente.
     
     Args:
-        pdf_path (str): Der Pfad zur PDF-Datei
-        output_dir (str): Der Pfad, unter dem das Word-Dokument gespeichert werden soll
+        pdf_path (str): Pfad zur PDF-Datei
+        output_dir (str): Pfad für das Word-Dokument
+        
+    Raises:
+        RuntimeError: Wenn die Konvertierung fehlschlägt
     """
     try:
         # Konvertiere PDF zu Word mit pdf2docx
@@ -114,8 +192,21 @@ def pdf_to_word(pdf_path, output_dir):
 
 def split_pdf_into_pages(pdf_path, output_dir):
     """
-    Nimmt den Pfad zu einer PDF entgegen und speichert jede Seite als einzelne 
-    PDF in einem Unterordner von `output_dir` mit Zeitstempel. Gibt eine Liste der erstellten Datei-Pfade zurück.
+    Teilt eine PDF-Datei in einzelne Seiten auf.
+    
+    Erstellt für jede Seite der PDF eine separate PDF-Datei in einem
+    Zeitstempel-Verzeichnis. Die Funktion behält die Qualität der
+    ursprünglichen PDF bei.
+    
+    Args:
+        pdf_path (str): Pfad zur PDF-Datei
+        output_dir (str): Basisverzeichnis für die Ausgabe
+        
+    Returns:
+        list: Liste der Pfade zu den erstellten Einzelseiten-PDFs
+        
+    Raises:
+        RuntimeError: Wenn die Aufteilung fehlschlägt
     """
     try:
         # Erstelle Zeitstempel-Verzeichnis
@@ -144,8 +235,18 @@ def split_pdf_into_pages(pdf_path, output_dir):
 
 def create_zip_from_files(file_list, zip_path):
     """
-    Nimmt eine Liste von Dateipfaden entgegen und erstellt daraus eine ZIP-Datei 
-    unter `zip_path`.
+    Erstellt ein ZIP-Archiv aus einer Liste von Dateien.
+    
+    Komprimiert die angegebenen Dateien in ein ZIP-Archiv und verwendet dabei
+    den Dateinamen ohne Pfad als Archivnamen. Die Funktion ist optimiert für
+    die Verarbeitung von PDF- und Bilddateien.
+    
+    Args:
+        file_list (list): Liste der zu archivierenden Dateipfade
+        zip_path (str): Pfad für das ZIP-Archiv
+        
+    Raises:
+        RuntimeError: Wenn die ZIP-Erstellung fehlschlägt
     """
     try:
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -157,18 +258,32 @@ def create_zip_from_files(file_list, zip_path):
 
 def extract_images_from_pdf(pdf_path, output_dir=None, preview_only=False):
     """
-    Extrahiert Bilder aus einer PDF.
-
+    Extrahiert Bilder aus einer PDF-Datei.
+    
+    Identifiziert und extrahiert alle eingebetteten Bilder aus der PDF.
+    Die Bilder werden mit aussagekräftigen Namen versehen und optional
+    nur als Vorschau erstellt.
+    
     Args:
         pdf_path (str): Pfad zur PDF-Datei
-        output_dir (str, optional): Zielverzeichnis für extrahierte Bilder
-        preview_only (bool): Wenn True, werden temporäre Vorschaubilder erstellt
-
+        output_dir (str, optional): Zielverzeichnis für die Bilder
+        preview_only (bool): Wenn True, werden nur temporäre Vorschaubilder erstellt
+        
     Returns:
-        list: Liste der Pfade zu extrahierten Bildern
+        list: Liste der Pfade zu den extrahierten Bildern
+        
+    Raises:
+        RuntimeError: Wenn die Bildextraktion fehlschlägt
     """
     extracted_images = []
-    temp_dir = "temp_preview" if preview_only else output_dir
+    
+    # Erstelle pdf_tool/temp Verzeichnis falls es nicht existiert
+    base_temp_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "pdf_tool", "temp")
+    if not os.path.exists(base_temp_dir):
+        os.makedirs(base_temp_dir)
+    
+    # Setze temp_preview als Unterverzeichnis von pdf_tool/temp
+    temp_dir = os.path.join(base_temp_dir, "temp_preview") if preview_only else output_dir
     
     if preview_only and not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
@@ -213,11 +328,19 @@ def extract_zugferd_data(pdf_path):
     """
     Extrahiert ZUGFeRD XML-Daten aus einer PDF/A-3 Datei.
     
+    Durchsucht die PDF nach eingebetteten XML-Dateien und extrahiert die
+    ZUGFeRD-Daten. Die Funktion unterstützt sowohl ZUGFeRD 1.0 als auch 2.0
+    und validiert die gefundenen XML-Daten.
+    
     Args:
         pdf_path (str): Pfad zur PDF-Datei
-
+        
     Returns:
-        tuple: (xml_string, parsed_data_dict) oder (None, None) wenn keine ZUGFeRD-Daten gefunden wurden
+        tuple: (xml_string, parsed_data_dict) oder (None, None) wenn keine
+               ZUGFeRD-Daten gefunden wurden
+        
+    Raises:
+        RuntimeError: Wenn die Datenextraktion fehlschlägt
     """
     doc = None
     try:
@@ -357,11 +480,18 @@ def extract_zugferd_data(pdf_path):
 
 def merge_pdfs(pdf_paths, output_path):
     """
-    Fügt mehrere PDFs zu einer einzigen PDF zusammen.
+    Fügt mehrere PDF-Dateien zu einem Dokument zusammen.
+    
+    Kombiniert die angegebenen PDF-Dateien in der gegebenen Reihenfolge zu
+    einer einzigen PDF-Datei. Die Funktion behält die Qualität der
+    ursprünglichen PDFs bei.
     
     Args:
         pdf_paths (list): Liste der Pfade zu den PDF-Dateien
-        output_path (str): Pfad, unter dem die zusammengefügte PDF gespeichert werden soll
+        output_path (str): Pfad für die zusammengefügte PDF
+        
+    Raises:
+        RuntimeError: Wenn das Zusammenfügen fehlschlägt
     """
     try:
         merged_pdf = fitz.open()
@@ -376,6 +506,10 @@ def merge_pdfs(pdf_paths, output_path):
 def show_save_dialog(parent, title="Speicherort auswählen", default_name=None, file_type=None, use_export_dir=False):
     """
     Zeigt einen einheitlichen Dialog zum Speichern von Dateien.
+    
+    Implementiert einen benutzerfreundlichen Speicherdialog mit deutschen
+    Beschriftungen und standardisierten Einstellungen. Optional kann das
+    konfigurierte Export-Verzeichnis als Startverzeichnis verwendet werden.
     
     Args:
         parent: Das übergeordnete Widget (für Modal-Dialog)
@@ -423,11 +557,15 @@ def show_directory_dialog(parent, title="Ordner auswählen", use_export_dir=Fals
     """
     Zeigt einen vereinfachten Dialog zur Ordnerauswahl.
     
+    Implementiert einen benutzerfreundlichen Verzeichnisauswahldialog mit
+    deutschen Beschriftungen und minimaler Benutzeroberfläche. Optional kann
+    das Export-Verzeichnis als Startverzeichnis verwendet werden.
+    
     Args:
         parent: Das übergeordnete Widget (für Modal-Dialog)
         title (str): Titel des Dialogs
-        use_export_dir (bool): Wenn True, wird das Export-Verzeichnis als Standard verwendet
-    
+        use_export_dir (bool): Ob das Export-Verzeichnis verwendet werden soll
+        
     Returns:
         str: Pfad zum gewählten Ordner oder None, wenn abgebrochen
     """

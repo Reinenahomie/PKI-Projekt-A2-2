@@ -1,3 +1,31 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+PDF Tool - Konfigurationsmodul
+
+Zentrale Konfigurationseinstellungen für das PDF Tool.
+Definiert wichtige Konstanten und Einstellungen, die im gesamten Programm
+verwendet werden.
+
+Konfigurationsbereiche:
+- Dateipfade und Verzeichnisse
+- GUI-Einstellungen (Fenstergrößen, Schriftarten)
+- PDF-Verarbeitungsoptionen
+- Temporäre Dateien und Caching
+
+Verwendung:
+    from pdf_tool.config import BASE_DIR, HOME_IMAGE_PATH
+    
+    # Pfad zum Startbild
+    image_path = HOME_IMAGE_PATH
+    
+    # Pfad zum Export-Verzeichnis
+    export_path = os.path.join(EXPORT_DIR, 'output.pdf')
+
+Autor: Team A2-2
+"""
+
 import os
 
 # Basis-Pfad zum Projektverzeichnis

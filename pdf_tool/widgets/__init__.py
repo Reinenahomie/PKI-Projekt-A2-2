@@ -1,5 +1,29 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 """
-Widget-Klassen für das PDF Tool
+PDF Tool - Widget-Modul
+
+Sammlung spezialisierter GUI-Widgets für die verschiedenen PDF-Operationen.
+Jedes Widget ist für eine spezifische Funktion optimiert und bietet eine
+benutzerfreundliche Oberfläche.
+
+Widget-Übersicht:
+- HomeWidget: Startseite mit Willkommenstext
+- PDFPreviewWidget: PDF-Vorschau und Navigation
+- PDFSplitWidget: Trennen von PDFs in Einzelseiten
+- PDFMergeWidget: Zusammenführen mehrerer PDFs
+- PDFToWordWidget: Konvertierung nach Word
+- PDFImageExtractorWidget: Extraktion von Bildern
+- EInvoiceReaderWidget: Anzeige von ZUGFeRD-Daten
+
+Technische Details:
+- Basiert auf PyQt5-Widgets
+- Einheitliches Design und Verhalten
+- Responsive Layouts
+- Threadsichere Implementierung
+
+Autor: Team A2-2
 """
 
 from .home_widget import HomeWidget
@@ -11,11 +35,11 @@ from .pdf_image_extractor_widget import PDFImageExtractorWidget
 from .zugferd_reader_widget import EInvoiceReaderWidget
 
 __all__ = [
-    'HomeWidget',
-    'PDFPreviewWidget',
-    'PDFSplitWidget',
-    'PDFMergeWidget',
-    'PDFToWordWidget',
-    'PDFImageExtractorWidget',
-    'EInvoiceReaderWidget'
+    'HomeWidget',              # Startseite
+    'PDFPreviewWidget',        # PDF-Vorschau
+    'PDFSplitWidget',         # PDF-Trennung
+    'PDFMergeWidget',         # PDF-Zusammenführung
+    'PDFToWordWidget',        # PDF zu Word
+    'PDFImageExtractorWidget', # Bildextraktion
+    'EInvoiceReaderWidget'    # ZUGFeRD-Anzeige
 ]

@@ -1,10 +1,55 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+PDF Tool - Hauptfenster und GUI-Komponenten
+
+Diese Datei implementiert das Hauptfenster der Anwendung und verwaltet die
+verschiedenen GUI-Komponenten und deren Interaktionen.
+
+Fensteraufbau:
+- Linke Seite: Menüleiste mit Funktionskacheln
+  - Datei öffnen/schließen
+  - PDF-Operationen (Trennen, Zusammenführen, etc.)
+  - Kontextabhängige Aktionsbuttons
+- Rechte Seite: Hauptarbeitsbereich
+  - Wechselnde Widgets je nach ausgewählter Funktion
+  - PDF-Vorschau und Bearbeitungsfunktionen
+
+Funktionsweise:
+1. Initialisierung des Hauptfensters
+   - Erstellen der GUI-Komponenten
+   - Einrichten der Layouts
+   - Konfiguration der Buttons
+
+2. Verwaltung der Widgets
+   - Dynamisches Laden der Funktionswidgets
+   - Kontextabhängige Anzeige von Aktionsbuttons
+   - Statusverwaltung (aktive PDF, etc.)
+
+3. Ereignisbehandlung
+   - Button-Klicks und Benutzerinteraktionen
+   - Dateioperationen
+   - Statusaktualisierungen
+
+Technische Details:
+- Basiert auf PyQt5
+- Verwendet QStackedWidget für Seitenwechsel
+- Responsive Layouts
+- Thread-sichere Implementierung
+
+Autor: Team A2-2
+"""
+
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QGridLayout, QPushButton,
-    QStackedWidget, QHBoxLayout, QLabel, QMessageBox, QApplication, QFrame
+    QStackedWidget, QHBoxLayout, QLabel, QMessageBox, QApplication, QFrame, QFileDialog, QAction
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
-from .widgets import (
+import os
+
+from pdf_tool.widgets import (
     HomeWidget, PDFPreviewWidget, PDFSplitWidget, PDFMergeWidget,
     PDFToWordWidget, PDFImageExtractorWidget, EInvoiceReaderWidget
 )
@@ -13,10 +58,22 @@ class MainWindow(QMainWindow):
     """
     Hauptfenster der Anwendung.
     
-    Diese Klasse erstellt das Hauptfenster mit:
-    - Einem Menü-Bereich mit Funktionskacheln
-    - Einem Bereich für die verschiedenen Funktionsansichten
-    - Einem einheitlichen Styling
+    Diese Klasse implementiert das zentrale Fenster des PDF Tools und
+    verwaltet alle GUI-Komponenten und deren Interaktionen.
+    
+    Attribute:
+        current_pdf_path (str): Pfad zur aktuell geöffneten PDF-Datei
+        stacked_widget (QStackedWidget): Container für die verschiedenen Ansichten
+        menu_widget (QWidget): Container für die Menüleiste
+        function_buttons (dict): Sammlung aller Funktionsbuttons
+        action_buttons_container (QWidget): Container für kontextabhängige Buttons
+    
+    Funktionen:
+        - PDF-Datei öffnen und schließen
+        - Navigation zwischen verschiedenen Ansichten
+        - Verwaltung der Funktionsbuttons
+        - Anzeige kontextabhängiger Aktionen
+        - Styling und Layout-Management
     """
     def __init__(self, parent=None):
         """Initialisiert das Hauptfenster und setzt alle UI-Komponenten auf."""
@@ -143,6 +200,8 @@ class MainWindow(QMainWindow):
         # Wende das definierte Stylesheet auf das Fenster an
         self.apply_stylesheet()
 
+        self._create_menu()
+
     def apply_stylesheet(self):
         """
         Wendet das CSS-ähnliche Styling auf die Anwendung an.
@@ -210,10 +269,14 @@ class MainWindow(QMainWindow):
         # Verstecke Aktions-Buttons, wenn nicht auf Bilder extrahieren oder PDF zusammenfügen
         if index not in [2, 3]:  # 2 = Bilder extrahieren, 3 = PDF zusammenfügen
             self.hide_action_buttons()
-            
-        # Zeige Info-Text für E-Rechnung
-        if index == 6:  # 6 = E-Rechnung anzeigen
-            self.show_action_buttons([], "Zeigt die ZUGFeRD-Daten der geöffneten PDF-Datei an.")
+        
+        # Zeige Info-Text für die verschiedenen Funktionen
+        if index == 1:  # PDF to Word
+            self.show_action_buttons([], "Konvertieren Sie die PDF-Datei in das DOCX-Format. Die Konvertierung behält das Layout und die Formatierung bei. Tabellen und Bilder werden bestmöglich übernommen.")
+        elif index == 5:  # PDF trennen
+            self.show_action_buttons([], "Trennen Sie die PDF-Datei in einzelne Seiten auf. Jede Seite wird als separate PDF-Datei gespeichert. Die getrennten Seiten werden in einem Ordner mit Zeitstempel gespeichert und sind nach Seitenzahlen benannt. Ideal für das Aufteilen großer Dokumente.")
+        elif index == 6:  # E-Rechnung anzeigen
+            self.show_action_buttons([], "Zeigt die ZUGFeRD-Daten der geöffneten PDF-Datei an. Unterstützt werden die Versionen 1.0 und 2.0 des ZUGFeRD-Standards. Die extrahierten Daten werden übersichtlich in einer Baumstruktur dargestellt. Sie können die Rechnungsdaten einsehen und die strukturierten Informationen wie Beträge, Steuern und Zahlungsbedingungen prüfen.")
 
     def set_current_pdf(self, pdf_path):
         """Setzt den Pfad zur aktuell geöffneten PDF-Datei."""
@@ -233,7 +296,7 @@ class MainWindow(QMainWindow):
                 ("Bilder speichern", self.page_extract_images.extract_images),
                 ("Bilder als ZIP speichern", self.page_extract_images.extract_images_to_zip)
             ],
-            "Extrahieren Sie Bilder aus der geöffneten PDF-Datei."
+            "Extrahieren Sie Bilder aus der geöffneten PDF-Datei. Die Bilder werden in ihrer ursprünglichen Qualität und Größe extrahiert. Unterstützt werden gängige Bildformate wie JPEG, PNG und TIFF. Die Bilder können einzeln oder als ZIP-Archiv gespeichert werden. Die Bilder werden automatisch nach Seitenzahl sortiert und mit aussagekräftigen Namen versehen. Ideal für die Weiterverarbeitung von Bildern aus Dokumenten."
         )
         
         # Wechsle zur Ansicht und zeige Vorschau
@@ -249,7 +312,7 @@ class MainWindow(QMainWindow):
                 ("Ausgewählte PDF entfernen", self.page_merge_pdf.remove_selected_pdf),
                 ("Gesamtes PDF speichern", self.page_merge_pdf.merge_pdfs)
             ],
-            "Fügen Sie mehrere PDF-Dateien zu einem Dokument zusammen."
+            "Fügen Sie mehrere PDF-Dateien zu einem Dokument zusammen. Die Reihenfolge kann durch die Auswahl der Dateien bestimmt werden. Bereits hinzugefügte PDFs können durch Anklicken ausgewählt und wieder entfernt werden. Die Seitenreihenfolge bleibt erhalten und die Qualität der Original-PDFs wird nicht beeinträchtigt. Perfekt für das Zusammenstellen von Dokumenten aus verschiedenen Quellen."
         )
         
         # Wechsle zur Ansicht
@@ -333,3 +396,31 @@ class MainWindow(QMainWindow):
             self.stacked_widget.addWidget(self.pdf_merge_widget)
         self.stacked_widget.setCurrentWidget(self.pdf_merge_widget)
         self.setWindowTitle("PDF Tool - PDF zusammenfügen")
+
+    def _create_menu(self):
+        """Erstellt die Menüleiste mit allen Menüpunkten."""
+        menubar = self.menuBar()                      # Erstelle Menüleiste
+        
+        # Datei-Menü
+        file_menu = menubar.addMenu('&Datei')        # Erstelle Datei-Menü
+        
+        # Öffnen-Aktion
+        open_action = QAction('Öffnen...', self)     # Erstelle Öffnen-Aktion
+        open_action.setShortcut('Ctrl+O')            # Setze Tastaturkürzel
+        open_action.setStatusTip('PDF-Datei öffnen') # Setze Statustipp
+        open_action.triggered.connect(self.page_pdf_preview.open_file_dialog)  # Verbinde mit der gleichen Funktion wie Button
+        file_menu.addAction(open_action)             # Füge Aktion zum Menü hinzu
+        
+        # Trenner
+        file_menu.addSeparator()                     # Füge Trennlinie ein
+        
+        # Beenden-Aktion
+        exit_action = QAction('Beenden', self)       # Erstelle Beenden-Aktion
+        exit_action.setShortcut('Ctrl+Q')            # Setze Tastaturkürzel
+        exit_action.setStatusTip('Anwendung beenden')  # Setze Statustipp
+        exit_action.triggered.connect(self.close)     # Verbinde mit Schließen-Funktion
+        file_menu.addAction(exit_action)             # Füge Aktion zum Menü hinzu
+
+    def _create_status_bar(self):
+        """Erstellt die Statusleiste."""
+        self.statusBar().showMessage("Bereit")      # Zeige Standardnachricht

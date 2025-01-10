@@ -1,70 +1,112 @@
-# PDF Tool
+# PDF-Tool
 
-Ein Tool zur Bearbeitung von PDF-Dateien mit verschiedenen Funktionen.
+Ein leistungsfähiges Python-Tool zur Verarbeitung und Analyse von PDF-Dokumenten.
 
-## Features
+## Funktionen
 
-- PDF zu Word Konvertierung
-- Bilder aus PDF extrahieren
-- PDFs zusammenfügen
-- PDF Vorschau mit Zoom-Funktion
-- PDF in Einzelseiten trennen
-- ZUGFeRD Rechnungen lesen (Version 1.0 und 2.0)
+- **PDF-Verarbeitung**
+  - PDF zu Word Konvertierung
+  - PDF-Dateien trennen (Einzelseiten)
+  - PDF-Dateien zusammenfügen
+  - Strukturierte Datenextraktion (E-Rechnungen)
+
+- **Bildverarbeitung**
+  - Extraktion von Bildern aus PDF-Dokumenten
+  - Vorschau der gefundenen Bilder
+  - Export als Einzelbilder oder ZIP-Archiv
+
+- **Benutzerfreundliche Oberfläche**
+  - Übersichtliche Menüstruktur
+  - Funktionskacheln für schnellen Zugriff
+  - Detaillierte Funktionsbeschreibungen
+  - Kontextabhängige Aktionsbuttons
 
 ## Installation
 
-1. **Virtuelle Umgebung erstellen**
+1. Python-Umgebung vorbereiten:
    ```bash
    python -m venv .venv
+   source .venv/bin/activate  # Unter Unix/macOS
+   # ODER
+   .venv\Scripts\activate     # Unter Windows
    ```
 
-2. **Virtuelle Umgebung aktivieren**
-   - Windows:
-     ```bash
-     .\.venv\Scripts\Activate
-     ```
-   - macOS/Linux:
-     ```bash
-     source .venv/bin/activate
-     ```
-
-3. **Abhängigkeiten installieren**
+2. Abhängigkeiten installieren:
    ```bash
    pip install -r requirements.txt
    ```
 
+## Systemvoraussetzungen
+
+- Python 3.8 oder höher
+- Installierte Pakete (siehe requirements.txt):
+  - PyQt5 (GUI-Framework)
+  - lxml (XML-Verarbeitung)
+  - PyMuPDF (PDF-Verarbeitung)
+  - pdf2docx (PDF-zu-Word Konvertierung)
+  - weitere Abhängigkeiten siehe requirements.txt
+
 ## Verwendung
 
-Starten Sie das Tool mit:
-```bash
-python run.py
-```
+1. Starten Sie das Tool:
+   ```bash
+   python run.py
+   ```
+
+2. Hauptfunktionen:
+   - PDF öffnen:
+     - Über den Button "Datei öffnen"
+     - Über das Menü "Datei" -> "Öffnen..." (Ctrl+O)
+   - Gewünschte Funktion in der linken Seitenleiste auswählen:
+     - "PDF to Word": Konvertiert PDF in DOCX-Format
+     - "PDF trennen": Erstellt separate PDFs für jede Seite
+     - "PDF zusammenfügen": Kombiniert mehrere PDFs
+     - "Bilder extrahieren": Speichert eingebettete Bilder
+     - "E-Rechnung anzeigen": Zeigt strukturierte Rechnungsdaten
+   - Kontextabhängige Aktionen im unteren Bereich der Seitenleiste nutzen
 
 ## Projektstruktur
 
 ```
 pdf_tool/
-├── widgets/                    # GUI-Widgets
-│   ├── home_widget.py         # Startseite
-│   ├── pdf_preview_widget.py  # PDF-Vorschau
-│   ├── pdf_split_widget.py    # PDF-Trennung
-│   ├── pdf_merge_widget.py    # PDF-Zusammenführung
-│   ├── pdf_to_word_widget.py  # PDF zu Word
-│   └── zugferd_reader_widget.py # ZUGFeRD-Leser
-├── utils/
-│   └── pdf_functions.py       # PDF-Verarbeitungsfunktionen
-├── config.py                  # Konfigurationsdatei
-├── gui.py                     # Hauptfenster
-└── main.py                    # Programmstart
+├── run.py              # Programmstart
+├── gui.py             # Hauptfenster
+├── config.py          # Konfigurationsdatei
+├── widgets/           # GUI-Komponenten
+│   ├── home_widget.py
+│   ├── image_widget.py
+│   └── zugferd_reader_widget.py
+└── utils/            # Hilfsfunktionen
+    └── pdf_functions.py
 ```
+
+## Features im Detail
+
+### PDF-Verarbeitung
+- PDF zu Word:
+  - Konvertierung mit Layout-Erhaltung
+  - Unterstützung für Tabellen und Bilder
+- PDF trennen:
+  - Automatische Einzelseiten-Extraktion
+  - Zeitstempel-basierte Ordnerstruktur
+- PDF zusammenfügen:
+  - Mehrere PDFs kombinieren
+  - Flexible Reihenfolge-Anpassung
+- E-Rechnungen:
+  - Unterstützung für ZUGFeRD 1.0 und 2.0
+  - Strukturierte Datenansicht
+
+### Bildverarbeitung
+- Intelligente Bilderkennung in PDFs
+- Vorschau aller gefundenen Bilder
+- Export-Optionen:
+  - Einzelbilder speichern
+  - Komprimiertes ZIP-Archiv
+  - Original-Qualität und -Format
 
 ## Entwicklung
 
-- Python 3.8+
-- PyQt5 für die GUI
-- PyMuPDF (fitz) für PDF-Verarbeitung
-- pdf2docx für PDF zu Word Konvertierung
+- Entwickelt von: Team A2-2 (Nahomie Reine Sigha Tagne, Delia Altewischer, Pascal Schäfer, Jörg Helkamp)
 
-## Lizenz
+- Bearbeitungszeitraum: Nov24-Jan25
 
-[Ihre Lizenz hier]

@@ -1,36 +1,56 @@
-# Importiere die notwendigen PyQt5-Komponenten für die GUI-Anwendung
-from PyQt5.QtWidgets import QApplication
-# Importiere das Hauptfenster aus dem lokalen gui-Modul
-from .gui import MainWindow
-# Importiere das sys-Modul für Systemfunktionen und Programmbeendigung
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+PDF Tool - Hauptprogramm
+
+Haupteinstiegspunkt für die PDF Tool Anwendung. Diese Datei initialisiert die
+Anwendung und startet die grafische Benutzeroberfläche.
+
+Funktionsweise:
+1. Erstellt die Qt-Anwendungsinstanz
+2. Initialisiert das Hauptfenster
+3. Startet die Ereignisschleife
+4. Beendet die Anwendung sauber
+
+Verwendung:
+    python -m pdf_tool.main
+    
+    # Oder über die Funktion
+    from pdf_tool.main import main
+    main()
+
+Technische Details:
+- Verwendet PyQt5 für die GUI
+- Einheitliche Fehlerbehandlung
+- Sauberes Aufräumen beim Beenden
+
+Autor: Team A2-2
+"""
+
 import sys
+from PyQt5.QtWidgets import QApplication
+from .gui import MainWindow
 
 def main():
     """
-    Hauptfunktion der Anwendung.
+    Hauptfunktion zum Starten der Anwendung.
     
-    Diese Funktion initialisiert die GUI-Anwendung und startet die Ereignisschleife.
-    Sie führt folgende Schritte aus:
-    1. Erstellt eine neue QApplication-Instanz
-    2. Erstellt und zeigt das Hauptfenster
-    3. Startet die Ereignisschleife und beendet die Anwendung ordnungsgemäß
+    Erstellt die Qt-Anwendung, initialisiert das Hauptfenster
+    und startet die Ereignisschleife.
+    
+    Returns:
+        int: Exit-Code der Anwendung (0 bei normalem Beenden)
     """
-    # Erstelle eine neue QApplication-Instanz
-    # sys.argv ermöglicht die Übergabe von Kommandozeilenargumenten
+    # Erstelle die Qt-Anwendung
     app = QApplication(sys.argv)
     
-    # Erstelle eine Instanz des Hauptfensters
+    # Erstelle und zeige das Hauptfenster
     window = MainWindow()
-    
-    # Zeige das Hauptfenster an
     window.show()
     
-    # Starte die Ereignisschleife und beende die Anwendung ordnungsgemäß
-    # app.exec_() startet die Hauptschleife
-    # sys.exit() stellt sicher, dass die Anwendung mit dem korrekten Status beendet wird
-    sys.exit(app.exec_())
+    # Starte die Ereignisschleife
+    return app.exec_()
 
-# Wenn diese Datei direkt ausgeführt wird (nicht importiert),
-# starte die Hauptfunktion
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    sys.exit(main())
