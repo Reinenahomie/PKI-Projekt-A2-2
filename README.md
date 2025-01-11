@@ -70,12 +70,13 @@ Ein leistungsfähiges Python-Tool zur Verarbeitung und Analyse von PDF-Dokumente
 ```
 pdf_tool/
 ├── run.py              # Programmstart
-├── gui.py             # Hauptfenster
+├── main.py            # Haupteinstiegspunkt
 ├── config.py          # Konfigurationsdatei
-├── widgets/           # GUI-Komponenten
+├── gui_components/    # GUI-Komponenten
+│   ├── gui.py         # Hauptfenster
 │   ├── home_widget.py
-│   ├── image_widget.py
-│   └── zugferd_reader_widget.py
+│   ├── pdf_preview_widget.py
+│   └── weitere Komponenten
 └── utils/            # Hilfsfunktionen
     └── pdf_functions.py
 ```

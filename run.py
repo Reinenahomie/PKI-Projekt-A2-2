@@ -2,37 +2,41 @@
 # -*- coding: utf-8 -*-
 
 """
-PDF Tool - Hauptprogramm
+PDF Tool - Startskript
 
-Startet die PDF Tool Anwendung. Dieses Skript ist der Einstiegspunkt für das Programm
-und initialisiert die grafische Benutzeroberfläche.
+Dieses Skript startet die PDF Tool Anwendung. Es initialisiert die
+Qt-Anwendung und das Hauptfenster.
 
-Funktionsweise:
-- Erstellt die Qt-Anwendung
-- Initialisiert das Hauptfenster
-- Startet die Ereignisschleife
+Verwendung:
+    python run.py
+
+Technische Details:
+- Verwendet PyQt5 für die GUI
+- Importiert die Hauptanwendung aus dem pdf_tool Paket
+- Fehlerbehandlung beim Start
 
 Autor: Team A2-2
 """
 
-# System-Imports
 import sys
-
-# Qt-Anwendungsklasse für die GUI
 from PyQt5.QtWidgets import QApplication
+from pdf_tool.gui_components.gui import MainWindow
 
-# Import des Hauptfensters aus unserem PDF Tool
-from pdf_tool.gui import MainWindow
-
-# Nur ausführen, wenn direkt gestartet (nicht bei Import)
-if __name__ == '__main__':
-    # Erstelle die Qt-Anwendung
-    app = QApplication(sys.argv)
+def main():
+    """
+    Hauptfunktion zum Starten der Anwendung.
     
-    # Erstelle und zeige das Hauptfenster
+    Erstellt die Qt-Anwendung und das Hauptfenster.
+    Startet die Ereignisschleife.
+    
+    Returns:
+        int: Exit-Code der Anwendung
+    """
+    app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    
-    # Starte die Ereignisschleife und beende das Programm nach dem Schließen
-    sys.exit(app.exec_())
+    return app.exec_()
+
+if __name__ == '__main__':
+    sys.exit(main())
 

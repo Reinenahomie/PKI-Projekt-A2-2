@@ -48,7 +48,7 @@ Autor: Team A2-2
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog,
-    QMessageBox, QScrollArea, QApplication
+    QMessageBox, QScrollArea, QApplication, QComboBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QImage, QPixmap
@@ -90,9 +90,11 @@ class PDFPreviewWidget(QWidget):
         super().__init__(parent)
         self.stacked_widget = stacked_widget          # Übergeordnetes StackedWidget
         self.current_page = 0                         # Aktuelle Seitennummer (0-basiert)
-        self.total_pages = 0                          # Gesamtanzahl der Seiten
-        self.pdf_path = None                          # Pfad zur aktuellen PDF
-        self.zoom_factor = 1.0                        # Aktueller Zoom-Faktor (100%)
+        self.total_pages = 0                         # Gesamtanzahl der Seiten
+        self.pdf_path = None                         # Pfad zur aktuellen PDF
+        self.zoom_factor = 1.0                       # Aktueller Zoom-Faktor (100%)
+        self.base_zoom = 1.0                         # Basis-Zoom für 100% Darstellung
+        self.render_quality = 2.0  # Faktor für höhere Renderqualität
         
         # Layout erstellen
         layout = QVBoxLayout()                        # Vertikales Hauptlayout
@@ -130,19 +132,36 @@ class PDFPreviewWidget(QWidget):
         button_width = 150                            # Einheitliche Buttonbreite
         
         # Zurück-Button
-        self.prev_button = QPushButton("Vorherige Seite")  # Button für vorherige Seite
+        self.prev_button = QPushButton("<<")  # Button für vorherige Seite
         self.prev_button.clicked.connect(self.show_previous_page)  # Verbinde Klick-Event
         self.prev_button.setEnabled(False)            # Initial deaktiviert
         self.prev_button.setFixedWidth(button_width)  # Feste Breite
         nav_layout.addWidget(self.prev_button)        # Zum Layout hinzufügen
         
         # Info-Label für Seiten und Zoom
-        self.info_label = QLabel("Seite 0 von 0 - Zoom: 100%")  # Status-Label
-        self.info_label.setAlignment(Qt.AlignCenter)  # Zentrierte Ausrichtung
-        nav_layout.addWidget(self.info_label)         # Zum Layout hinzufügen
+        info_layout = QHBoxLayout()
+        
+        # Seitenauswahl Combo Box
+        self.page_combo = QComboBox()
+        self.page_combo.setFixedWidth(80)
+        self.page_combo.setMaxVisibleItems(10)  # Maximal 10 Einträge sichtbar
+        self.page_combo.view().setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)  # Scrollbar wenn nötig
+        self.page_combo.currentIndexChanged.connect(self.on_page_selected)
+        info_layout.addWidget(self.page_combo)
+        
+        info_layout.addWidget(QLabel("von"))
+        self.total_pages_label = QLabel("0")
+        info_layout.addWidget(self.total_pages_label)
+        
+        info_layout.addWidget(QLabel("-"))
+        
+        self.zoom_label = QLabel("Zoom: 100%")
+        info_layout.addWidget(self.zoom_label)
+        
+        nav_layout.addLayout(info_layout)
         
         # Weiter-Button
-        self.next_button = QPushButton("Nächste Seite")  # Button für nächste Seite
+        self.next_button = QPushButton(">>")  # Button für nächste Seite
         self.next_button.clicked.connect(self.show_next_page)  # Verbinde Klick-Event
         self.next_button.setEnabled(False)            # Initial deaktiviert
         self.next_button.setFixedWidth(button_width)  # Feste Breite
@@ -154,7 +173,7 @@ class PDFPreviewWidget(QWidget):
         zoom_layout = QHBoxLayout()                   # Horizontales Layout
         
         # Zoom Out Button
-        self.zoom_out_button = QPushButton("Verkleinern")  # Button zum Verkleinern
+        self.zoom_out_button = QPushButton("Zoom -")  # Button zum Verkleinern
         self.zoom_out_button.clicked.connect(self.zoom_out)  # Verbinde Klick-Event
         self.zoom_out_button.setFixedWidth(button_width)  # Feste Breite
         zoom_layout.addWidget(self.zoom_out_button)   # Zum Layout hinzufügen
@@ -165,7 +184,7 @@ class PDFPreviewWidget(QWidget):
         zoom_layout.addWidget(self.fit_button)        # Zum Layout hinzufügen
         
         # Zoom In Button
-        self.zoom_in_button = QPushButton("Vergrößern")  # Button zum Vergrößern
+        self.zoom_in_button = QPushButton("Zoom +")  # Button zum Vergrößern
         self.zoom_in_button.clicked.connect(self.zoom_in)  # Verbinde Klick-Event
         self.zoom_in_button.setFixedWidth(button_width)  # Feste Breite
         zoom_layout.addWidget(self.zoom_in_button)    # Zum Layout hinzufügen
@@ -192,6 +211,11 @@ class PDFPreviewWidget(QWidget):
                 self.total_pages = load_pdf(pdf_path)  # Lade PDF und hole Seitenzahl
                 self.current_page = 0                 # Starte bei erster Seite
                 
+                # Aktualisiere Combo Box
+                self.page_combo.clear()
+                self.page_combo.addItems([str(i+1) for i in range(self.total_pages)])
+                self.page_combo.setCurrentIndex(0)
+                
                 # Aktiviere Navigation wenn mehrere Seiten
                 self.prev_button.setEnabled(self.total_pages > 1)  # Vorherige-Seite-Button
                 self.next_button.setEnabled(self.total_pages > 1)  # Nächste-Seite-Button
@@ -209,7 +233,6 @@ class PDFPreviewWidget(QWidget):
                 window_width = int(screen.width() * 0.4)   # 40% der Bildschirmbreite
                 main_window.resize(window_width, window_height)  # Setze neue Größe
                 
-                self.zoom_factor = 1.0                # Setze Zoom zurück
                 self.fit_to_window()                  # Passe an Fenstergröße an
                 
             except Exception as e:
@@ -222,57 +245,59 @@ class PDFPreviewWidget(QWidget):
     def show_previous_page(self):
         """
         Zeigt die vorherige Seite der PDF an, wenn verfügbar.
-        Aktualisiert die Seitennavigation und rendert die neue Seite.
         """
-        if self.current_page > 0:                     # Wenn nicht erste Seite
-            self.current_page -= 1                    # Eine Seite zurück
-            self.update_page_display()                # Aktualisiere Anzeige
-            self.render_current_page()                # Rendere neue Seite
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.page_combo.setCurrentIndex(self.current_page)
+            self.update_zoom_label()  # Verwende update_zoom_label statt update_page_display
+            self.prev_button.setEnabled(self.current_page > 0)
+            self.next_button.setEnabled(self.current_page < self.total_pages - 1)
+            self.render_current_page()
 
     def show_next_page(self):
         """
         Zeigt die nächste Seite der PDF an, wenn verfügbar.
-        Aktualisiert die Seitennavigation und rendert die neue Seite.
         """
-        if self.current_page < self.total_pages - 1:  # Wenn nicht letzte Seite
-            self.current_page += 1                    # Eine Seite vor
-            self.update_page_display()                # Aktualisiere Anzeige
-            self.render_current_page()                # Rendere neue Seite
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            self.page_combo.setCurrentIndex(self.current_page)
+            self.update_zoom_label()  # Verwende update_zoom_label statt update_page_display
+            self.prev_button.setEnabled(self.current_page > 0)
+            self.next_button.setEnabled(self.current_page < self.total_pages - 1)
+            self.render_current_page()
 
     def update_page_display(self):
         """
-        Aktualisiert die Anzeige der aktuellen Seitennummer und des Zoom-Faktors.
-        Aktiviert oder deaktiviert die Navigationsbuttons je nach Position.
+        Aktualisiert die Anzeige der aktuellen Seitennummer und aktiviert/deaktiviert
+        die Navigationsbuttons je nach Position.
         """
-        self.info_label.setText(f"Seite {self.current_page + 1} von {self.total_pages} - Zoom: {int(self.zoom_factor * 100)}%")  # Update Info
-        self.prev_button.setEnabled(self.current_page > 0)  # Aktiviere/Deaktiviere Zurück
-        self.next_button.setEnabled(self.current_page < self.total_pages - 1)  # Aktiviere/Deaktiviere Vor
+        self.total_pages_label.setText(str(self.total_pages))
+        self.prev_button.setEnabled(self.current_page > 0)
+        self.next_button.setEnabled(self.current_page < self.total_pages - 1)
 
     def zoom_in(self):
         """
-        Vergrößert die Ansicht um 25%.
-        Aktualisiert die Zoom-Anzeige und rendert die Seite neu.
+        Vergrößert die Ansicht um 20%.
         """
-        self.zoom_factor += 0.25                      # Erhöhe Zoom um 25%
-        self.update_zoom_label()                      # Aktualisiere Zoom-Anzeige
-        self.render_current_page()                    # Rendere Seite neu
+        self.zoom_factor = self.zoom_factor * 1.2  # Erhöhe Zoom um 20%
+        self.update_zoom_label()
+        self.render_current_page()
 
     def zoom_out(self):
         """
-        Verkleinert die Ansicht um 25%, aber nicht unter 25%.
-        Aktualisiert die Zoom-Anzeige und rendert die Seite neu.
+        Verkleinert die Ansicht um 20%.
         """
-        if self.zoom_factor > 0.25:                   # Wenn über Mindest-Zoom
-            self.zoom_factor -= 0.25                  # Reduziere Zoom um 25%
-            self.update_zoom_label()                  # Aktualisiere Zoom-Anzeige
-            self.render_current_page()                # Rendere Seite neu
+        self.zoom_factor = self.zoom_factor * 0.8  # Reduziere Zoom um 20%
+        self.update_zoom_label()
+        self.render_current_page()
 
     def update_zoom_label(self):
         """
-        Aktualisiert die Zoom-Anzeige im Info-Label.
-        Zeigt den aktuellen Zoom-Faktor in Prozent an.
+        Aktualisiert die Zoom-Anzeige im Zoom-Label.
+        Der initiale Zoom (fit_to_window) wird als 100% angezeigt.
         """
-        self.info_label.setText(f"Seite {self.current_page + 1} von {self.total_pages} - Zoom: {int(self.zoom_factor * 100)}%")  # Update Info
+        zoom_percent = int((self.zoom_factor / self.base_zoom) * 100)
+        self.zoom_label.setText(f"Zoom: {zoom_percent}%")
 
     def calculate_fit_zoom_factor(self, page_pixmap):
         """
@@ -299,31 +324,43 @@ class PDFPreviewWidget(QWidget):
     def render_current_page(self):
         """
         Rendert die aktuelle Seite mit dem aktuellen Zoom-Faktor.
-        Lädt die Seite als Pixmap und skaliert sie entsprechend.
+        Verwendet einen höheren Qualitätsfaktor für bessere Darstellung.
         """
-        if not self.pdf_path:                          # Wenn keine PDF geladen
+        if not self.pdf_path:
             return
         
         try:
-            # Rendere die aktuelle Seite
-            pix = render_page(self.pdf_path, self.current_page, self.zoom_factor)  # Lade Seite
-            if not pix:                                # Wenn Laden fehlgeschlägt
+            # Rendere die Seite mit erhöhter Qualität
+            render_zoom = self.zoom_factor * self.render_quality
+            pix = render_page(self.pdf_path, self.current_page, render_zoom)
+            if not pix:
                 return
             
             # Konvertiere zu QPixmap
-            img_data = pix.tobytes("ppm")              # Konvertiere zu Bytes
-            qimg = QImage.fromData(img_data)           # Erstelle QImage
-            pixmap = QPixmap.fromImage(qimg)           # Konvertiere zu QPixmap
+            img_data = pix.tobytes("ppm")
+            qimg = QImage.fromData(img_data)
+            pixmap = QPixmap.fromImage(qimg)
+            
+            # Skaliere auf die tatsächliche Anzeigegröße
+            if self.render_quality != 1.0:
+                display_width = int(pixmap.width() / self.render_quality)
+                display_height = int(pixmap.height() / self.render_quality)
+                pixmap = pixmap.scaled(
+                    display_width, 
+                    display_height,
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation
+                )
             
             # Zeige die Pixmap
-            self.preview_label.setPixmap(pixmap)       # Setze neue Vorschau
+            self.preview_label.setPixmap(pixmap)
             
         except Exception as e:
             QMessageBox.critical(
                 self,
                 "Fehler beim Rendern",
                 f"Die Seite konnte nicht gerendert werden:\n{str(e)}"
-            )                                          # Zeige Fehlermeldung
+            )
 
     def return_to_home(self):
         """
@@ -341,6 +378,7 @@ class PDFPreviewWidget(QWidget):
         self.zoom_factor = 1.0                        # Setze Zoom zurück
         self.preview_label.clear()                    # Lösche Vorschau
         self.update_page_display()                    # Aktualisiere Anzeige
+        self.page_combo.clear()
 
     def resizeEvent(self, event):
         """
@@ -354,40 +392,51 @@ class PDFPreviewWidget(QWidget):
 
     def fit_to_window(self):
         """
-        Passt die Seite an die Fenstergröße an.
-        Berechnet den optimalen Zoom-Faktor und rendert die Seite neu.
+        Passt die Seite optimal an die Fenstergröße an.
+        Der berechnete Faktor wird als Basis-Zoom (100%) verwendet.
         """
-        if not self.pdf_path:                          # Wenn keine PDF geladen
+        if not self.pdf_path:
             return
         
         try:
             # Rendere die Seite zunächst mit Zoom 1.0
-            pix = render_page(self.pdf_path, self.current_page, 1.0)  # Lade Seite
-            if not pix:                                # Wenn Laden fehlgeschlägt
+            pix = render_page(self.pdf_path, self.current_page, 1.0)
+            if not pix:
                 return
             
             # Konvertiere zu QPixmap für Größenberechnung
-            img_data = pix.tobytes("ppm")              # Konvertiere zu Bytes
-            qimg = QImage.fromData(img_data)           # Erstelle QImage
-            pixmap = QPixmap.fromImage(qimg)           # Konvertiere zu QPixmap
+            img_data = pix.tobytes("ppm")
+            qimg = QImage.fromData(img_data)
+            pixmap = QPixmap.fromImage(qimg)
             
             # Berechne verfügbaren Platz (Viewport-Größe)
-            available_width = self.scroll_area.viewport().width() - 20   # Breite mit Rand
-            available_height = self.scroll_area.viewport().height() - 20  # Höhe mit Rand
+            available_width = self.scroll_area.viewport().width() - 20
+            available_height = self.scroll_area.viewport().height() - 20
             
             # Berechne Skalierungsfaktoren
-            width_ratio = available_width / pixmap.width()   # Horizontaler Faktor
-            height_ratio = available_height / pixmap.height()  # Vertikaler Faktor
+            width_ratio = available_width / pixmap.width()
+            height_ratio = available_height / pixmap.height()
             
             # Wähle kleineren Faktor für proportionale Skalierung
-            self.zoom_factor = min(width_ratio, height_ratio)  # Optimaler Zoom
+            self.base_zoom = min(width_ratio, height_ratio)  # Setze dies als 100%
+            self.zoom_factor = self.base_zoom  # Initialer Zoom ist 100%
             
-            self.update_zoom_label()                   # Aktualisiere Anzeige
-            self.render_current_page()                 # Rendere mit neuem Zoom
+            self.update_zoom_label()
+            self.render_current_page()
             
         except Exception as e:
             QMessageBox.critical(
                 self,
                 "Fehler beim Anpassen",
                 f"Die Seite konnte nicht angepasst werden:\n{str(e)}"
-            )                                          # Zeige Fehlermeldung 
+            )
+
+    def on_page_selected(self, index):
+        """
+        Wird aufgerufen, wenn eine neue Seite in der Combo Box ausgewählt wird.
+        """
+        if index >= 0:  # Verhindere negative Indizes
+            self.current_page = index
+            self.update_page_display()  # Aktualisiere Buttons und Anzeige
+            self.render_current_page()
+ 

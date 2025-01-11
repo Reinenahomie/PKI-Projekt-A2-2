@@ -50,7 +50,22 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from pdf2docx import Converter
-from ..config import SAMPLE_PDF_DIR, EXPORT_DIR
+
+# Konfiguriere Standardpfade
+SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SAMPLE_PDF_DIR = os.path.join(SCRIPT_DIR, "sample_pdf")
+EXPORT_DIR = os.path.join(SCRIPT_DIR, "export_folder")
+
+# Stelle sicher, dass die Verzeichnisse existieren
+os.makedirs(SAMPLE_PDF_DIR, exist_ok=True)
+os.makedirs(EXPORT_DIR, exist_ok=True)
+
+# Setze Sprache für native Dialoge unter macOS
+if os.uname().sysname == 'Darwin':  # Prüfe ob macOS
+    os.environ['LANG'] = 'de_DE'
+    os.environ['LC_ALL'] = 'de_DE'
+    os.environ['LC_MESSAGES'] = 'de_DE'
+    os.environ['LANGUAGE'] = 'de_DE'
 
 def load_pdf(pdf_path):
     """
@@ -99,9 +114,13 @@ def render_page(pdf_path, page_number, zoom_factor=1.0):
     try:
         pdf_document = fitz.open(pdf_path)
         page = pdf_document[page_number]
-        # Erstelle die Transformationsmatrix mit dem Zoom-Faktor
-        matrix = fitz.Matrix(zoom_factor, zoom_factor)
-        pix = page.get_pixmap(matrix=matrix)
+        # Erhöhe die Rendering-Qualität durch Anpassung der DPI
+        # 300 DPI ist ein guter Standardwert für hochwertige Darstellung
+        dpi = 300
+        # Berechne die Matrix basierend auf DPI und Zoom-Faktor
+        matrix = fitz.Matrix(zoom_factor * dpi/72, zoom_factor * dpi/72)
+        # Aktiviere Anti-Aliasing und höhere Qualität
+        pix = page.get_pixmap(matrix=matrix, alpha=False, annots=True)
         pdf_document.close()
         return pix
     except Exception as e:
@@ -109,11 +128,10 @@ def render_page(pdf_path, page_number, zoom_factor=1.0):
 
 def show_pdf_open_dialog(parent, title="PDF auswählen"):
     """
-    Zeigt einen einheitlichen Dialog zum Öffnen von PDF-Dateien.
+    Zeigt einen nativen Dialog zum Öffnen von PDF-Dateien.
     
-    Implementiert einen benutzerfreundlichen Dateiauswahldialog mit deutschen
-    Beschriftungen und standardisierten Einstellungen. Der Dialog startet im
-    konfigurierten Beispiel-PDF-Verzeichnis.
+    Verwendet den nativen Dateiauswahldialog des jeweiligen Betriebssystems.
+    Der Dialog startet im konfigurierten Beispiel-PDF-Verzeichnis.
     
     Args:
         parent: Das übergeordnete Widget (für Modal-Dialog)
@@ -131,19 +149,9 @@ def show_pdf_open_dialog(parent, title="PDF auswählen"):
     if os.path.exists(SAMPLE_PDF_DIR):
         dialog.setDirectory(SAMPLE_PDF_DIR)
     
-    # Deutsche Beschriftungen für die Standardbuttons
-    dialog.setLabelText(QFileDialog.FileName, "Name:")
-    dialog.setLabelText(QFileDialog.Accept, "Öffnen")
-    dialog.setLabelText(QFileDialog.Reject, "Abbrechen")
-    dialog.setLabelText(QFileDialog.FileType, "Dateityp:")
-    dialog.setLabelText(QFileDialog.LookIn, "Suchen in:")
+    # Aktiviere den nativen Dialog
+    dialog.setOption(QFileDialog.DontUseNativeDialog, False)
     
-    # Zusätzliche deutsche Beschriftungen
-    dialog.setOption(QFileDialog.DontUseNativeDialog)
-    new_folder_button = dialog.findChild(QPushButton, "newFolderButton")
-    if new_folder_button:
-        new_folder_button.setText("Neuer Ordner")
-
     if dialog.exec_() == QFileDialog.Accepted:
         selected_files = dialog.selectedFiles()
         if selected_files:
@@ -167,7 +175,7 @@ def clean_text(text):
     # Entferne NULL-Bytes und Steuerzeichen, behalte aber Zeilenumbrüche und Tabulatoren
     return ''.join(char for char in text if char in '\n\t\r' or (ord(char) >= 32 and ord(char) != 127))
 
-def pdf_to_word(pdf_path, output_dir):
+def pdf_to_word(pdf_path, output_path):
     """
     Konvertiert eine PDF-Datei in ein Word-Dokument.
     
@@ -177,7 +185,7 @@ def pdf_to_word(pdf_path, output_dir):
     
     Args:
         pdf_path (str): Pfad zur PDF-Datei
-        output_dir (str): Pfad für das Word-Dokument
+        output_path (str): Pfad für das Word-Dokument (inkl. Dateiname)
         
     Raises:
         RuntimeError: Wenn die Konvertierung fehlschlägt
@@ -185,7 +193,7 @@ def pdf_to_word(pdf_path, output_dir):
     try:
         # Konvertiere PDF zu Word mit pdf2docx
         cv = Converter(pdf_path)
-        cv.convert(output_dir)
+        cv.convert(output_path)
         cv.close()
     except Exception as e:
         raise RuntimeError(f"Fehler beim Umwandeln der PDF: {str(e)}")
@@ -505,11 +513,11 @@ def merge_pdfs(pdf_paths, output_path):
 
 def show_save_dialog(parent, title="Speicherort auswählen", default_name=None, file_type=None, use_export_dir=False):
     """
-    Zeigt einen einheitlichen Dialog zum Speichern von Dateien.
+    Zeigt einen nativen Dialog zum Speichern von Dateien.
     
-    Implementiert einen benutzerfreundlichen Speicherdialog mit deutschen
-    Beschriftungen und standardisierten Einstellungen. Optional kann das
-    konfigurierte Export-Verzeichnis als Startverzeichnis verwendet werden.
+    Verwendet den nativen Speicherdialog des jeweiligen Betriebssystems.
+    Optional kann das konfigurierte Export-Verzeichnis als Startverzeichnis 
+    verwendet werden.
     
     Args:
         parent: Das übergeordnete Widget (für Modal-Dialog)
@@ -523,6 +531,7 @@ def show_save_dialog(parent, title="Speicherort auswählen", default_name=None, 
     """
     dialog = QFileDialog(parent)
     dialog.setWindowTitle(title)
+    dialog.setAcceptMode(QFileDialog.AcceptSave)  # Speichermodus aktivieren
     
     # Setze das Standardverzeichnis
     if use_export_dir and os.path.exists(EXPORT_DIR):
@@ -532,22 +541,13 @@ def show_save_dialog(parent, title="Speicherort auswählen", default_name=None, 
             dialog.setDirectory(EXPORT_DIR)
     elif default_name:
         dialog.selectFile(default_name)
-        
+    
     if file_type:
         dialog.setNameFilter(f"{file_type[0]} ({file_type[1]})")
+        dialog.setDefaultSuffix(file_type[1].replace("*.", ""))  # Setze Standard-Dateiendung
     
-    # Deutsche Beschriftungen für die Standardbuttons
-    dialog.setLabelText(QFileDialog.FileName, "Name:")
-    dialog.setLabelText(QFileDialog.Accept, "Speichern")
-    dialog.setLabelText(QFileDialog.Reject, "Abbrechen")
-    dialog.setLabelText(QFileDialog.FileType, "Dateityp:")
-    dialog.setLabelText(QFileDialog.LookIn, "Speichern in:")
-    
-    # Zusätzliche deutsche Beschriftungen
-    dialog.setOption(QFileDialog.DontUseNativeDialog)
-    new_folder_button = dialog.findChild(QPushButton, "newFolderButton")
-    if new_folder_button:
-        new_folder_button.setText("Neuer Ordner")
+    # Aktiviere den nativen Dialog
+    dialog.setOption(QFileDialog.DontUseNativeDialog, False)
     
     if dialog.exec_() == QFileDialog.Accepted:
         return dialog.selectedFiles()[0]
@@ -555,11 +555,10 @@ def show_save_dialog(parent, title="Speicherort auswählen", default_name=None, 
 
 def show_directory_dialog(parent, title="Ordner auswählen", use_export_dir=False):
     """
-    Zeigt einen vereinfachten Dialog zur Ordnerauswahl.
+    Zeigt einen nativen Dialog zur Ordnerauswahl.
     
-    Implementiert einen benutzerfreundlichen Verzeichnisauswahldialog mit
-    deutschen Beschriftungen und minimaler Benutzeroberfläche. Optional kann
-    das Export-Verzeichnis als Startverzeichnis verwendet werden.
+    Verwendet den nativen Verzeichnisauswahldialog des jeweiligen Betriebssystems.
+    Optional kann das Export-Verzeichnis als Startverzeichnis verwendet werden.
     
     Args:
         parent: Das übergeordnete Widget (für Modal-Dialog)
@@ -573,52 +572,13 @@ def show_directory_dialog(parent, title="Ordner auswählen", use_export_dir=Fals
     dialog.setWindowTitle(title)
     dialog.setFileMode(QFileDialog.Directory)
     dialog.setOption(QFileDialog.ShowDirsOnly, True)
-    dialog.setOption(QFileDialog.DontUseNativeDialog, True)
     
     # Setze das Standardverzeichnis
     if use_export_dir and os.path.exists(EXPORT_DIR):
         dialog.setDirectory(EXPORT_DIR)
     
-    # Deutsche Beschriftungen für die Standardbuttons
-    dialog.setLabelText(QFileDialog.Accept, "Ordner auswählen")
-    dialog.setLabelText(QFileDialog.Reject, "Abbrechen")
-    dialog.setLabelText(QFileDialog.LookIn, "Suchen in:")
-    
-    # Verstecke nicht benötigte Elemente
-    dialog.setOption(QFileDialog.DontUseCustomDirectoryIcons, True)
-    
-    # Finde und verstecke die nicht benötigten Widgets
-    filename_label = dialog.findChild(QLabel, "fileNameLabel")
-    if filename_label:
-        filename_label.hide()
-    
-    filename_edit = dialog.findChild(QLineEdit, "fileNameEdit")
-    if filename_edit:
-        filename_edit.hide()
-    
-    filetype_label = dialog.findChild(QLabel, "fileTypeLabel")
-    if filetype_label:
-        filetype_label.hide()
-    
-    filetype_combo = dialog.findChild(QComboBox, "fileTypeCombo")
-    if filetype_combo:
-        filetype_combo.hide()
-    
-    # Neuer Ordner Button auf Deutsch
-    new_folder_button = dialog.findChild(QPushButton, "newFolderButton")
-    if new_folder_button:
-        new_folder_button.setText("Neuer Ordner")
-    
-    # Finde die Buttons und ändere ihre Reihenfolge
-    button_box = dialog.findChild(QDialogButtonBox)
-    if button_box:
-        # Entferne die alten Buttons
-        for button in button_box.buttons():
-            button_box.removeButton(button)
-        
-        # Erstelle neue Buttons und füge sie hinzu
-        button_box.addButton(QDialogButtonBox.Cancel).setText("Abbrechen")
-        button_box.addButton(QDialogButtonBox.Ok).setText("Ordner auswählen")
+    # Aktiviere den nativen Dialog
+    dialog.setOption(QFileDialog.DontUseNativeDialog, False)
     
     if dialog.exec_() == QFileDialog.Accepted:
         return dialog.selectedFiles()[0]

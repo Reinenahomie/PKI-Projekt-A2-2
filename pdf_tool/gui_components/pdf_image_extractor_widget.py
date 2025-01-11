@@ -49,6 +49,8 @@ from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, QSize
 from ..utils.pdf_functions import extract_images_from_pdf
 import os
+import tempfile
+import zipfile
 
 class ImageContainer(QWidget):
     """Container für ein einzelnes Bild mit fester Größe."""
@@ -232,36 +234,12 @@ class PDFImageExtractorWidget(QWidget):
         file_dialog.setFileMode(QFileDialog.Directory)  # Nur Verzeichnisauswahl
         file_dialog.setViewMode(QFileDialog.List)       # Listenansicht
         file_dialog.setOption(QFileDialog.ShowDirsOnly, True)  # Nur Verzeichnisse anzeigen
-        file_dialog.setOption(QFileDialog.DontUseNativeDialog, True)  # PyQt Dialog verwenden
-        file_dialog.setOption(QFileDialog.DontUseCustomDirectoryIcons, True)  # Standardicons
+        
+        # Aktiviere den nativen Dialog
+        file_dialog.setOption(QFileDialog.DontUseNativeDialog, False)
         
         # Setze Standardverzeichnis auf export_folder
         file_dialog.setDirectory(export_dir)          # Startverzeichnis setzen
-        
-        # Entferne "Files of type" Dropdown und Label
-        for child in file_dialog.findChildren(QLabel):
-            if child.text() == "Files of type:":
-                child.hide()                          # Verstecke Label
-        for child in file_dialog.findChildren(QComboBox):
-            if child.parentWidget().findChild(QLabel).text() == "Files of type:":
-                child.hide()                          # Verstecke Dropdown
-        
-        # Label für die Pfadanzeige erstellen
-        path_label = QLabel("Ausgewähltes Verzeichnis:")  # Beschriftung
-        path_label.setStyleSheet("QLabel { padding: 5px; font-weight: bold; }")  # Formatierung
-        file_dialog.layout().addWidget(path_label)        # Zum Dialog hinzufügen
-        
-        path_value = QLabel()                            # Label für Pfadanzeige
-        path_value.setStyleSheet("QLabel { padding: 5px; }")  # Formatierung
-        file_dialog.layout().addWidget(path_value)       # Zum Dialog hinzufügen
-        
-        # Aktualisiere Pfadanzeige bei Verzeichniswechsel
-        def update_path_label():
-            current_path = file_dialog.directory().absolutePath()  # Aktueller Pfad
-            path_value.setText(current_path)                       # Pfad anzeigen
-        
-        file_dialog.directoryEntered.connect(update_path_label)  # Signal verbinden
-        update_path_label()                                      # Initial anzeigen
         
         if file_dialog.exec_() == QFileDialog.Accepted:
             save_dir = file_dialog.selectedFiles()[0]  # Gewähltes Verzeichnis
@@ -281,14 +259,14 @@ class PDFImageExtractorWidget(QWidget):
 
     def extract_images_to_zip(self):
         """
-        Extrahiert die Bilder aus der PDF und speichert sie in einer ZIP-Datei.
+        Extrahiert Bilder aus der PDF und speichert sie in einer ZIP-Datei.
         
-        Öffnet einen Dialog zur Auswahl des Speicherorts für die ZIP-Datei.
-        Die Bilder werden temporär extrahiert und dann in einem ZIP-Archiv
-        zusammengefasst. Der vorgeschlagene Dateiname enthält das aktuelle Datum.
+        Öffnet einen Dialog zur Auswahl des Speicherorts für die ZIP-Datei
+        und extrahiert alle Bilder aus der aktuellen PDF. Die Bilder werden
+        mit aussagekräftigen Namen in der ZIP-Datei gespeichert.
         
         Raises:
-            Exception: Wenn die ZIP-Erstellung fehlschlägt
+            Exception: Wenn die Bildextraktion oder ZIP-Erstellung fehlschlägt
         """
         main_window = self.window()                   # Referenz auf Hauptfenster
         pdf_path = main_window.get_current_pdf()      # Pfad der aktuellen PDF
@@ -297,68 +275,70 @@ class PDFImageExtractorWidget(QWidget):
             QMessageBox.warning(self, "Fehler", "Bitte öffnen Sie zuerst eine PDF-Datei.")
             return
             
+        # Erstelle standardisierten Dateinamen
+        pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]  # PDF-Name ohne Endung
+        default_filename = f"{pdf_name}_Bilder.zip"   # ZIP-Name mit PDF-Name
+        
         # Stelle sicher, dass das export_folder existiert
         export_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "export_folder")
         if not os.path.exists(export_dir):
-            os.makedirs(export_dir)                   # Erstelle Verzeichnis falls nötig
-            
-        # Erstelle standardisierten Dateinamen mit aktuellem Datum
-        from datetime import datetime
-        default_filename = f"Bilder_{datetime.now().strftime('%Y-%m-%d')}.zip"  # Dateiname mit Datum
-        default_path = os.path.join(export_dir, default_filename)               # Vollständiger Pfad
-            
-        # Konfiguriere Dateiauswahl-Dialog
+            os.makedirs(export_dir)                   # Erstelle Verzeichnis
+        
+        # Erstelle vollständigen Standardpfad
+        default_path = os.path.join(export_dir, default_filename)
+        
+        # Konfiguriere Speichern-Dialog
         file_dialog = QFileDialog(self)               # Erstelle Dialog
         file_dialog.setWindowTitle("ZIP-Datei speichern")  # Setze Titel
         file_dialog.setNameFilter("ZIP-Dateien (*.zip)")   # Nur ZIP-Dateien
         file_dialog.setViewMode(QFileDialog.List)          # Listenansicht
         file_dialog.setAcceptMode(QFileDialog.AcceptSave)  # Speichermodus
         file_dialog.setDefaultSuffix("zip")               # Standard-Dateiendung
-        file_dialog.setOption(QFileDialog.DontUseNativeDialog, True)  # PyQt Dialog
+        
+        # Aktiviere den nativen Dialog
+        file_dialog.setOption(QFileDialog.DontUseNativeDialog, False)
         
         # Setze den vorgeschlagenen Dateinamen
         file_dialog.selectFile(default_path)          # Vorschlag setzen
         
-        # Entferne "Files of type" Dropdown und Label
-        for child in file_dialog.findChildren(QLabel):
-            if child.text() == "Files of type:":
-                child.hide()                          # Verstecke Label
-        for child in file_dialog.findChildren(QComboBox):
-            if child.parentWidget().findChild(QLabel).text() == "Files of type:":
-                child.hide()                          # Verstecke Dropdown
-        
-        # Label für die Pfadanzeige erstellen
-        path_label = QLabel("Ausgewähltes Verzeichnis:")  # Beschriftung
-        path_label.setStyleSheet("QLabel { padding: 5px; font-weight: bold; }")  # Formatierung
-        file_dialog.layout().addWidget(path_label)        # Zum Dialog hinzufügen
-        
-        path_value = QLabel()                            # Label für Pfadanzeige
-        path_value.setStyleSheet("QLabel { padding: 5px; }")  # Formatierung
-        file_dialog.layout().addWidget(path_value)       # Zum Dialog hinzufügen
-        
-        # Aktualisiere Pfadanzeige bei Verzeichniswechsel
-        def update_path_label():
-            current_path = file_dialog.directory().absolutePath()  # Aktueller Pfad
-            path_value.setText(current_path)                       # Pfad anzeigen
-        
-        file_dialog.directoryEntered.connect(update_path_label)  # Signal verbinden
-        update_path_label()                                      # Initial anzeigen
-        
         if file_dialog.exec_() == QFileDialog.Accepted:
-            zip_path = file_dialog.selectedFiles()[0]  # Gewählter Speicherort
+            save_path = file_dialog.selectedFiles()[0]  # Gewählter Speicherort
             try:
-                # Temporäres Verzeichnis für die Bilder
-                import tempfile
+                # Extrahiere Bilder in temporäres Verzeichnis
                 with tempfile.TemporaryDirectory() as temp_dir:
-                    # Bilder extrahieren
-                    extracted_images = extract_images_from_pdf(pdf_path, output_dir=temp_dir)  # Extraktion
-                    if extracted_images:
-                        # ZIP erstellen
-                        from ..utils.pdf_functions import create_zip_from_files
-                        create_zip_from_files(extracted_images, zip_path)  # ZIP packen
-                        QMessageBox.information(self, "Erfolg", f"{len(extracted_images)} Bilder wurden erfolgreich als ZIP-Datei gespeichert.")
-                    else:
-                        QMessageBox.information(self, "Keine Bilder", "Es wurden keine Bilder in der PDF gefunden.")
+                    extracted_images = extract_images_from_pdf(pdf_path, output_dir=temp_dir)
+                    
+                    if not extracted_images:
+                        QMessageBox.information(self, "Keine Bilder", 
+                            "Es wurden keine Bilder in der PDF gefunden.")
+                        return
+                    
+                    # Erstelle ZIP-Datei
+                    with zipfile.ZipFile(save_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                        for img_path in extracted_images:
+                            # Füge jedes Bild zur ZIP hinzu
+                            arcname = os.path.basename(img_path)  # Nur Dateiname
+                            zipf.write(img_path, arcname)
+                    
+                    QMessageBox.information(self, "Erfolg", 
+                        f"{len(extracted_images)} Bilder wurden erfolgreich in die ZIP-Datei extrahiert.")
+                    
             except Exception as e:
-                # Zeige Fehlermeldung
-                QMessageBox.critical(self, "Fehler", f"Fehler beim Erstellen der ZIP-Datei: {str(e)}")
+                QMessageBox.critical(self, "Fehler", 
+                    f"Fehler beim Erstellen der ZIP-Datei: {str(e)}")
+
+    def add_pdf(self):
+        """
+        Öffnet einen Dialog zum Auswählen einer PDF-Datei.
+        
+        Verwendet den nativen Dateiauswahldialog und startet im sample_pdf
+        Verzeichnis. Nach Auswahl einer PDF wird diese in der Vorschau
+        angezeigt.
+        """
+        pdf_path = show_pdf_open_dialog(
+            self,
+            "PDF für Bildextraktion auswählen"
+        )
+        
+        if pdf_path:
+            self.show_preview(pdf_path)  # Zeige Vorschau der gewählten PDF

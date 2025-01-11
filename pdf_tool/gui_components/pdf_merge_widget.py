@@ -220,7 +220,9 @@ class PDFMergeWidget(QWidget):
         file_dialog.setNameFilter("PDF-Dateien (*.pdf)")  # Nur PDF-Dateien
         file_dialog.setViewMode(QFileDialog.List)     # Listenansicht
         file_dialog.setFileMode(QFileDialog.ExistingFiles)  # Mehrfachauswahl
-        file_dialog.setOption(QFileDialog.DontUseNativeDialog, True)  # PyQt Dialog
+        
+        # Aktiviere den nativen Dialog
+        file_dialog.setOption(QFileDialog.DontUseNativeDialog, False)
         
         if file_dialog.exec_() == QFileDialog.Accepted:
             selected_files = file_dialog.selectedFiles()  # Hole ausgewählte Dateien
@@ -314,10 +316,12 @@ class PDFMergeWidget(QWidget):
         file_dialog.setViewMode(QFileDialog.List)     # Listenansicht
         file_dialog.setAcceptMode(QFileDialog.AcceptSave)  # Speichermodus
         file_dialog.setDefaultSuffix("pdf")          # Standard-Dateiendung
-        file_dialog.setOption(QFileDialog.DontUseNativeDialog, True)  # PyQt Dialog
+        
+        # Aktiviere den nativen Dialog
+        file_dialog.setOption(QFileDialog.DontUseNativeDialog, False)
         
         # Setze Standardpfad
-        default_path = os.path.join(export_dir, default_filename)  # Vollständiger Pfad
+        default_path = os.path.join(export_dir, default_filename)
         file_dialog.selectFile(default_path)          # Vorauswahl setzen
         
         if file_dialog.exec_() == QFileDialog.Accepted:

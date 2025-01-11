@@ -30,7 +30,7 @@ Autor: Team A2-2
 
 import sys
 from PyQt5.QtWidgets import QApplication
-from .gui import MainWindow
+from .gui_components.gui import MainWindow
 
 def main():
     """

@@ -47,7 +47,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QImage, QPixmap
-from ..utils.pdf_functions import pdf_to_word, render_page, show_save_dialog
+from ..utils.pdf_functions import render_page, show_save_dialog
 from pdf2docx import Converter
 import os
 
@@ -101,7 +101,7 @@ class ConversionThread(QThread):
                 except:
                     pass
                 self.finished.emit(False, "Konvertierung nicht möglich: Die PDF enthält möglicherweise komplexe Vektorgrafiken oder andere nicht unterstützte Elemente.")
-            
+
         except Exception as e:
             # Fehlerbehandlung bei Konvertierungsproblemen
             try:

@@ -158,19 +158,17 @@ class EInvoiceReaderWidget(QWidget):
         if hasattr(self, 'xml_tree'):                     # Prüfe ob Baumansicht existiert
             self.xml_tree.setColumnWidth(0, self.xml_tree.width() // 2)  # Passe Spaltenbreite an
 
-    def _add_xml_element(self, element, parent_item=None):
+    def add_xml_element(self, element, parent_item=None):
         """
-        Fügt XML-Elemente rekursiv zur Baumstruktur hinzu.
+        Fügt ein XML-Element zum TreeWidget hinzu.
         
-        Verarbeitet ein XML-Element und seine Unterelemente, entfernt Namespaces
-        für bessere Lesbarkeit und fügt Attribute als Unterelemente hinzu.
+        Rekursive Funktion, die ein XML-Element und alle seine Kinder
+        als Items zum TreeWidget hinzufügt. Text und Attribute werden
+        als untergeordnete Items dargestellt.
         
         Args:
-            element: XML-Element das hinzugefügt werden soll
-            parent_item: Optionales Elternelement in der Baumstruktur
-            
-        Returns:
-            QTreeWidgetItem: Das erstellte Baumelement
+            element: Das XML-Element das hinzugefügt werden soll
+            parent_item: Das übergeordnete TreeWidgetItem
         """
         tag = element.tag.split('}')[-1]                  # Entferne Namespace aus Element-Name
         text = element.text.strip() if element.text and element.text.strip() else ""  # Bereinige Text
@@ -190,7 +188,7 @@ class EInvoiceReaderWidget(QWidget):
             attr_item.setText(1, value)                   # Setze Attribut-Wert
         
         for child in element:                             # Für jedes Kind-Element
-            self._add_xml_element(child, item)            # Füge Kind-Element rekursiv hinzu
+            self.add_xml_element(child, item)            # Füge Kind-Element rekursiv hinzu
             
         return item                                       # Gebe erstelltes Element zurück
 
@@ -234,9 +232,9 @@ class EInvoiceReaderWidget(QWidget):
                 return
                 
             root = ET.fromstring(xml_data)              # Parse XML-Daten
-            self._add_xml_element(root)                 # Füge XML-Struktur zum Baum hinzu
+            self.add_xml_element(root)                 # Füge XML-Struktur zum Baum hinzu
             self.xml_tree.expandAll()                   # Expandiere alle Baumeinträge
-            self._add_invoice_data(root)                # Füge aufbereitete Daten zur Liste hinzu
+            self.add_invoice_data(root)                # Füge aufbereitete Daten zur Liste hinzu
             
         except Exception as e:                          # Bei Fehlern während der Verarbeitung
             root_item = QTreeWidgetItem(self.xml_tree)  # Erstelle Wurzelelement
@@ -244,26 +242,17 @@ class EInvoiceReaderWidget(QWidget):
             root_item.setText(0, error_msg)             # Setze Fehlermeldung im Baum
             self.data_list.addItem(error_msg)           # Füge Fehlermeldung zur Liste hinzu
 
-    def _add_invoice_data(self, root):
+    def add_invoice_data(self, root):
         """
-        Extrahiert und verarbeitet die Rechnungsdaten.
+        Fügt die Rechnungsdaten zum TreeWidget hinzu.
         
-        Diese zentrale Methode verarbeitet die XML-Daten einer PDF-Rechnung.
-        Sie unterstützt verschiedene Versionen des Rechnungsformats durch
-        eine einheitliche Verarbeitungslogik mit versionsspezifischen
-        Konfigurationen.
-        
-        Die Methode extrahiert folgende Daten:
-        - Allgemeine Rechnungsinformationen (Nummer, Datum, Typ)
-        - Verkäuferinformationen inkl. Adresse und Kontakt
-        - Käuferinformationen inkl. Adresse
-        - Zahlungsinformationen (IBAN, BIC)
-        - Betragsangaben (Netto, Steuer, Gesamt)
+        Extrahiert die wichtigsten Rechnungsdaten aus dem XML und
+        stellt sie übersichtlich im TreeWidget dar.
         
         Args:
-            root: XML-Root-Element mit den Rechnungsdaten
+            root: Das Root-Element des XML-Dokuments
         """
-        version = self._detect_zugferd_version(root)    # Ermittle die Version der Rechnungsdaten
+        version = self.detect_zugferd_version(root)    # Ermittle die Version der Rechnungsdaten
         
         # Definiere die Namespace-Konfigurationen für beide Versionen
         NAMESPACES = {
@@ -335,94 +324,100 @@ class EInvoiceReaderWidget(QWidget):
             
             # Extrahiere und zeige allgemeine Informationen
             self.data_list.addItem("=== Allgemeine Informationen ===")  # Überschrift für allgemeine Daten
-            self._extract_element(root, paths["invoice_number"], nsmap, "Rechnungsnummer")  # Extrahiere Rechnungsnummer
-            self._extract_element(root, paths["issue_date"], nsmap, "Rechnungsdatum")  # Extrahiere Rechnungsdatum
-            self._extract_element(root, paths["invoice_type"], nsmap, "Rechnungstyp")  # Extrahiere Rechnungstyp
+            self.extract_element(root, paths["invoice_number"], nsmap, "Rechnungsnummer")  # Extrahiere Rechnungsnummer
+            self.extract_element(root, paths["issue_date"], nsmap, "Rechnungsdatum")  # Extrahiere Rechnungsdatum
+            self.extract_element(root, paths["invoice_type"], nsmap, "Rechnungstyp")  # Extrahiere Rechnungstyp
             
             # Extrahiere und zeige Verkäuferinformationen
             self.data_list.addItem("\n=== Verkäufer ===")  # Überschrift für Verkäuferdaten
             seller = root.find(paths["seller"], nsmap)    # Finde das Verkäufer-Element
             if seller is not None:                        # Wenn Verkäufer gefunden wurde
-                self._extract_element(seller, 'ram:Name', nsmap, "Name")  # Extrahiere Verkäufername
+                self.extract_element(seller, 'ram:Name', nsmap, "Name")  # Extrahiere Verkäufername
                 
                 # Verarbeite Verkäufer-Adresse
                 address = seller.find(paths["seller_address"], nsmap)  # Finde Adress-Element
                 if address is not None:                   # Wenn Adresse gefunden wurde
-                    self._extract_element(address, 'ram:LineOne', nsmap, "Straße")  # Extrahiere Straße
-                    self._extract_address(address, nsmap)  # Extrahiere und formatiere PLZ/Ort
-                    self._extract_element(address, 'ram:CountryID', nsmap, "Land")  # Extrahiere Land
+                    self.extract_element(address, 'ram:LineOne', nsmap, "Straße")  # Extrahiere Straße
+                    self.extract_address(address, nsmap)  # Extrahiere und formatiere PLZ/Ort
+                    self.extract_element(address, 'ram:CountryID', nsmap, "Land")  # Extrahiere Land
                 
                 # Verarbeite Kontaktinformationen
                 contact = seller.find(paths["seller_contact"], nsmap)  # Finde Kontakt-Element
                 if contact is not None:                   # Wenn Kontakt gefunden wurde
-                    self._extract_element(contact, 'ram:URIID', nsmap, "E-Mail")  # Extrahiere E-Mail
+                    self.extract_element(contact, 'ram:URIID', nsmap, "E-Mail")  # Extrahiere E-Mail
                 
                 # Extrahiere Steuernummer/USt-ID
-                self._extract_element(seller, paths["seller_tax"], nsmap, "USt-ID")  # Extrahiere Steuer-ID
+                self.extract_element(seller, paths["seller_tax"], nsmap, "USt-ID")  # Extrahiere Steuer-ID
             
             # Extrahiere und zeige Käuferinformationen
             self.data_list.addItem("\n=== Käufer ===")   # Überschrift für Käuferdaten
             buyer = root.find(paths["buyer"], nsmap)     # Finde das Käufer-Element
             if buyer is not None:                        # Wenn Käufer gefunden wurde
-                self._extract_element(buyer, 'ram:Name', nsmap, "Name")  # Extrahiere Käufername
+                self.extract_element(buyer, 'ram:Name', nsmap, "Name")  # Extrahiere Käufername
                 
                 # Verarbeite Käufer-Adresse
                 address = buyer.find(paths["buyer_address"], nsmap)  # Finde Adress-Element
                 if address is not None:                   # Wenn Adresse gefunden wurde
-                    self._extract_element(address, 'ram:LineOne', nsmap, "Straße")  # Extrahiere Straße
-                    self._extract_address(address, nsmap)  # Extrahiere und formatiere PLZ/Ort
-                    self._extract_element(address, 'ram:CountryID', nsmap, "Land")  # Extrahiere Land
+                    self.extract_element(address, 'ram:LineOne', nsmap, "Straße")  # Extrahiere Straße
+                    self.extract_address(address, nsmap)  # Extrahiere und formatiere PLZ/Ort
+                    self.extract_element(address, 'ram:CountryID', nsmap, "Land")  # Extrahiere Land
             
             # Extrahiere und zeige Zahlungsinformationen
             self.data_list.addItem("\n=== Zahlungsinformationen ===")  # Überschrift für Zahlungsdaten
             payment = root.find(paths["payment"], nsmap)  # Finde das Zahlungs-Element
             if payment is not None:                      # Wenn Zahlungsinformationen gefunden wurden
-                self._extract_element(payment, 'ram:TypeCode', nsmap, "Zahlungsart")  # Extrahiere Zahlungsart
+                self.extract_element(payment, 'ram:TypeCode', nsmap, "Zahlungsart")  # Extrahiere Zahlungsart
                 
                 # Verarbeite Kontodaten
                 account = payment.find(paths["payment_account"], nsmap)  # Finde Konto-Element
                 if account is not None:                   # Wenn Kontodaten gefunden wurden
-                    self._extract_element(account, 'ram:IBANID', nsmap, "IBAN")  # Extrahiere IBAN
-                    self._extract_element(payment, './/ram:PayeeSpecifiedCreditorFinancialInstitution/ram:BICID', nsmap, "BIC")  # Extrahiere BIC
+                    self.extract_element(account, 'ram:IBANID', nsmap, "IBAN")  # Extrahiere IBAN
+                    self.extract_element(payment, './/ram:PayeeSpecifiedCreditorFinancialInstitution/ram:BICID', nsmap, "BIC")  # Extrahiere BIC
             
             # Extrahiere und zeige Betragsangaben
             self.data_list.addItem("\n=== Beträge ===")  # Überschrift für Beträge
             monetary = root.find(paths["monetary"], nsmap)  # Finde das Beträge-Element
             if monetary is not None:                     # Wenn Beträge gefunden wurden
-                self._extract_amount(monetary, paths["amount_net"], nsmap, "Nettobetrag")  # Extrahiere Nettobetrag
-                self._extract_amount(monetary, paths["amount_tax"], nsmap, "Steuerbetrag")  # Extrahiere Steuerbetrag
-                self._extract_amount(monetary, paths["amount_total"], nsmap, "Gesamtbetrag")  # Extrahiere Gesamtbetrag
+                self.extract_amount(monetary, paths["amount_net"], nsmap, "Nettobetrag")  # Extrahiere Nettobetrag
+                self.extract_amount(monetary, paths["amount_tax"], nsmap, "Steuerbetrag")  # Extrahiere Steuerbetrag
+                self.extract_amount(monetary, paths["amount_total"], nsmap, "Gesamtbetrag")  # Extrahiere Gesamtbetrag
                 
         except Exception as e:                          # Fehlerbehandlung
             self.data_list.addItem(f"Fehler beim Extrahieren der Daten: {str(e)}")  # Zeige Fehlermeldung an
 
-    def _extract_element(self, root, path, nsmap, label):
+    def extract_element(self, root, path, nsmap, label):
         """
-        Extrahiert ein einzelnes Element und fügt es zur Liste hinzu.
+        Extrahiert ein Element aus dem XML anhand des XPath.
         
-        Hilfsmethode zum einheitlichen Extrahieren und Formatieren von
-        XML-Elementen.
+        Sucht ein Element im XML und gibt dessen Text zurück.
+        Bei mehreren Elementen wird der Text des ersten verwendet.
         
         Args:
-            root: XML-Element in dem gesucht wird
-            path: XPath-Ausdruck zum Finden des Elements
-            nsmap: Namespace-Mapping für die XPath-Suche
-            label: Beschriftung für die Anzeige
+            root: XML Root-Element
+            path: XPath zum gesuchten Element
+            nsmap: Namespace-Map für XPath
+            label: Beschriftung für das Element
+            
+        Returns:
+            str: Extrahierter Text oder None
         """
         element = root.find(path, nsmap)               # Finde Element
         if element is not None:                        # Wenn Element gefunden
             self.data_list.addItem(f"{label}: {element.text}")  # Füge zur Liste hinzu
 
-    def _extract_address(self, address, nsmap):
+    def extract_address(self, address, nsmap):
         """
-        Extrahiert und formatiert eine Adresse.
+        Extrahiert eine Adresse aus dem XML.
         
-        Spezielle Methode zur Verarbeitung von Adressdaten. Kombiniert
-        PLZ und Ort zu einer formatierten Zeile.
+        Liest die einzelnen Adressfelder aus und
+        formatiert sie als mehrzeiligen String.
         
         Args:
-            address: XML-Element mit den Adressdaten
-            nsmap: Namespace-Mapping für die XML-Verarbeitung
+            address: XML-Element mit der Adresse
+            nsmap: Namespace-Map für XPath
+            
+        Returns:
+            str: Formatierte Adresse
         """
         city = address.find('ram:CityName', nsmap)     # Finde Stadt
         postal = address.find('ram:PostcodeCode', nsmap)  # Finde PLZ
@@ -434,18 +429,20 @@ class EInvoiceReaderWidget(QWidget):
                 address_line += f" {city.text}"        # Füge Stadt hinzu
             self.data_list.addItem(address_line)       # Füge zur Liste hinzu
 
-    def _extract_amount(self, monetary, path, nsmap, label):
+    def extract_amount(self, monetary, path, nsmap, label):
         """
-        Extrahiert und formatiert einen Geldbetrag.
+        Extrahiert einen Geldbetrag aus dem XML.
         
-        Spezielle Methode zur Verarbeitung von Geldbeträgen. Berücksichtigt
-        den Betrag und die Währung.
+        Liest Betrag und Währung aus und formatiert sie.
         
         Args:
-            monetary: XML-Element mit den Betragsdaten
-            path: XPath zum Betragselement
-            nsmap: Namespace-Mapping für die XML-Verarbeitung
-            label: Beschriftung für die Anzeige
+            monetary: XML-Element mit dem Geldbetrag
+            path: XPath zum Betrag
+            nsmap: Namespace-Map für XPath
+            label: Beschriftung für den Betrag
+            
+        Returns:
+            str: Formatierter Geldbetrag mit Währung
         """
         amount = monetary.find(path, nsmap)            # Finde Betrag
         if amount is not None:                         # Wenn Betrag gefunden
@@ -453,18 +450,18 @@ class EInvoiceReaderWidget(QWidget):
                 f"{label}: {amount.text} {amount.get('currencyID', '')}"
             )
 
-    def _detect_zugferd_version(self, root):
+    def detect_zugferd_version(self, root):
         """
-        Erkennt die Version der PDF-Rechnung.
+        Erkennt die ZUGFeRD-Version anhand des XML.
         
-        Analysiert den Namespace des Root-Elements um die Version zu bestimmen.
-        Unterstützt die Versionen 1.0 und 2.0.
+        Analysiert das Root-Element und die Namespaces
+        um die Version zu bestimmen.
         
         Args:
-            root: XML-Root-Element der Rechnungsdaten
+            root: Das Root-Element des XML
             
         Returns:
-            str: Erkannte Version ("1.0", "2.0" oder "unbekannt")
+            str: Erkannte ZUGFeRD-Version
         """
         if root.tag.startswith('{urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'):  # Prüfe auf Version 2.0
             return "2.0"                                  # Gebe Version 2.0 zurück

@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-PDF Tool - Widget-Modul
+PDF Tool - GUI-Komponenten
 
-Sammlung spezialisierter GUI-Widgets für die verschiedenen PDF-Operationen.
-Jedes Widget ist für eine spezifische Funktion optimiert und bietet eine
+Sammlung spezialisierter GUI-Komponenten für die verschiedenen PDF-Operationen.
+Jede Komponente ist für eine spezifische Funktion optimiert und bietet eine
 benutzerfreundliche Oberfläche.
 
-Widget-Übersicht:
+Komponenten-Übersicht:
 - HomeWidget: Startseite mit Willkommenstext
 - PDFPreviewWidget: PDF-Vorschau und Navigation
 - PDFSplitWidget: Trennen von PDFs in Einzelseiten

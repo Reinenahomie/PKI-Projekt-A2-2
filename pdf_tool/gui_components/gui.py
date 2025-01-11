@@ -49,7 +49,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 import os
 
-from pdf_tool.widgets import (
+from pdf_tool.gui_components import (
     HomeWidget, PDFPreviewWidget, PDFSplitWidget, PDFMergeWidget,
     PDFToWordWidget, PDFImageExtractorWidget, EInvoiceReaderWidget
 )
@@ -200,7 +200,7 @@ class MainWindow(QMainWindow):
         # Wende das definierte Stylesheet auf das Fenster an
         self.apply_stylesheet()
 
-        self._create_menu()
+        self.create_menu()
 
     def apply_stylesheet(self):
         """
@@ -397,8 +397,15 @@ class MainWindow(QMainWindow):
         self.stacked_widget.setCurrentWidget(self.pdf_merge_widget)
         self.setWindowTitle("PDF Tool - PDF zusammenfügen")
 
-    def _create_menu(self):
-        """Erstellt die Menüleiste mit allen Menüpunkten."""
+    def create_menu(self):
+        """
+        Erstellt die Menüleiste der Anwendung.
+        
+        Fügt alle Menüeinträge und deren Aktionen hinzu.
+        Die Menüleiste enthält die Hauptkategorien:
+        - Datei (Öffnen, Beenden)
+        - Hilfe (Über)
+        """
         menubar = self.menuBar()                      # Erstelle Menüleiste
         
         # Datei-Menü
@@ -420,7 +427,3 @@ class MainWindow(QMainWindow):
         exit_action.setStatusTip('Anwendung beenden')  # Setze Statustipp
         exit_action.triggered.connect(self.close)     # Verbinde mit Schließen-Funktion
         file_menu.addAction(exit_action)             # Füge Aktion zum Menü hinzu
-
-    def _create_status_bar(self):
-        """Erstellt die Statusleiste."""
-        self.statusBar().showMessage("Bereit")      # Zeige Standardnachricht

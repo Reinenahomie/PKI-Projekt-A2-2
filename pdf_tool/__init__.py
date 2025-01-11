@@ -16,8 +16,8 @@ Funktionen:
 - ZUGFeRD-Daten anzeigen
 
 Paketstruktur:
-- gui.py: Hauptfenster und GUI-Komponenten
-- widgets/: Spezialisierte GUI-Widgets für PDF-Operationen
+- main.py: Haupteinstiegspunkt der Anwendung
+- gui_components/: GUI-Komponenten und Hauptfenster
 - utils/: Hilfsfunktionen für PDF-Verarbeitung
 
 Technische Basis:
