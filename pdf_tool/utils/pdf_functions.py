@@ -50,6 +50,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from pdf2docx import Converter
+import platform
 
 # Konfiguriere Standardpfade
 SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -61,7 +62,7 @@ os.makedirs(SAMPLE_PDF_DIR, exist_ok=True)
 os.makedirs(EXPORT_DIR, exist_ok=True)
 
 # Setze Sprache für native Dialoge unter macOS
-if os.uname().sysname == 'Darwin':  # Prüfe ob macOS
+if platform.system() == 'Darwin':  # Prüfe ob macOS
     os.environ['LANG'] = 'de_DE'
     os.environ['LC_ALL'] = 'de_DE'
     os.environ['LC_MESSAGES'] = 'de_DE'
