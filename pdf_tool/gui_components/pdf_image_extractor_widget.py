@@ -47,7 +47,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, QSize
-from ..utils.pdf_functions import extract_images_from_pdf
+from ..utils.pdf_functions import extract_images_from_pdf, show_pdf_open_dialog
 import os
 import tempfile
 import zipfile
